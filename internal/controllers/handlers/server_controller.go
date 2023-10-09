@@ -1,25 +1,19 @@
 package handlers
 
-import "github.com/pavlegich/gophermart/internal/infra/config"
+import (
+	"database/sql"
+
+	"github.com/pavlegich/gophermart/internal/infra/config"
+)
 
 type Controller struct {
-	config *config.Config
+	Config   *config.Config
+	Database *sql.DB
 }
 
-func NewController(cfg *config.Config) *Controller {
+func NewController(cfg *config.Config, db *sql.DB) *Controller {
 	return &Controller{
-		config: cfg,
+		Config:   cfg,
+		Database: db,
 	}
-}
-
-func (c *Controller) GetAddress() string {
-	return c.config.GetAddress()
-}
-
-func (c *Controller) GetDBuri() string {
-	return c.config.GetDBuri()
-}
-
-func (c *Controller) GetAccrualAddr() string {
-	return c.config.GetAccrualAddr()
 }
