@@ -3,14 +3,14 @@
 CREATE TABLE IF NOT EXISTS users (
     id serial PRIMARY KEY,
     login text UNIQUE NOT NULL,
-    password text NOT NULL
+    password bytea NOT NULL
 );
 
 -- создание таблицы orders
 CREATE TYPE status AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 CREATE TABLE IF NOT EXISTS orders (
     id serial PRIMARY KEY,
-    number integer NOT NULL,
+    number integer UNIQUE NOT NULL,
     user_id integer REFERENCES users (id),
     status status,
     created_at timestamp DEFAULT NOW()

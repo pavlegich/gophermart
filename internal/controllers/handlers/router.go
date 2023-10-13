@@ -14,5 +14,7 @@ func (c *Controller) Route(ctx context.Context) *chi.Mux {
 
 	r.Get("/", c.HandleMain)
 
+	r.Post("/api/user/register", c.HandleRegister)
+
 	return r
 }

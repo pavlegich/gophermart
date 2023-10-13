@@ -10,6 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/controllers/handlers"
 	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
+	"github.com/pavlegich/gophermart/internal/domains/user"
+	userRepo "github.com/pavlegich/gophermart/internal/domains/user/repository"
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/db"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
@@ -34,20 +36,23 @@ func Run() error {
 	}
 
 	// База данных
-	db, err := db.Init(ctx, cfg.GetDBuri())
+	db, err := db.Init(ctx, cfg.Database)
 	if err != nil {
 		return fmt.Errorf("Run: database initialization failed %w", err)
 	}
 
+	// Сервисы
+	userService := user.NewUserService(userRepo.New(db))
+
 	// Контроллер
-	controller := handlers.NewController(cfg, db)
+	controller := handlers.NewController(cfg, db, userService)
 
 	// Роутер
 	r := chi.NewRouter()
 	r.Use(middlewares.Recovery)
 	r.Mount("/", controller.Route(ctx))
 
-	logger.Log.Info("Running server", zap.String("address", cfg.GetAddress()))
+	logger.Log.Info("Running server", zap.String("address", cfg.Address))
 
-	return http.ListenAndServe(cfg.GetAddress(), r)
+	return http.ListenAndServe(cfg.Address, r)
 }
