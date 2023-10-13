@@ -11,7 +11,7 @@ import (
 	"github.com/pavlegich/gophermart/internal/controllers/handlers"
 	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
 	"github.com/pavlegich/gophermart/internal/infra/config"
-	"github.com/pavlegich/gophermart/internal/infra/db"
+	"github.com/pavlegich/gophermart/internal/infra/database"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
 	"go.uber.org/zap"
 )
@@ -34,15 +34,16 @@ func Run() error {
 	}
 
 	// База данных
-	db, err := db.Init(ctx, cfg.GetDBuri())
+	db, err := database.Init(ctx, cfg.GetDBuri())
 	if err != nil {
 		return fmt.Errorf("Run: database initialization failed %w", err)
 	}
+	defer db.Close()
 
-	// // Контроллер
+	// Контроллер
 	server := handlers.NewController(db, cfg)
 
-	// // Роутер
+	// Роутер
 	r := chi.NewRouter()
 	r.Use(middlewares.Recovery)
 	r.Mount("/", server.BuildRoute(ctx))

@@ -34,17 +34,17 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 	cfg := &Config{}
 
 	flag.StringVar(&cfg.address, "a", "localhost:8080", "Gophermart service running host:port")
-	flag.StringVar(&cfg.database, "d", "postgresql://localhost:5432/gophermart", "URI (DSN) to database")
+	flag.StringVar(&cfg.database, "d", "", "URI (DSN) to database")
 	flag.StringVar(&cfg.accrual, "r", "", "Accrual service host:port")
 
 	flag.Parse()
 
 	if err := env.Parse(cfg); err != nil {
-		return nil, fmt.Errorf("ParseFlags: wrong environment values %w", err)
+		return cfg, fmt.Errorf("ParseFlags: wrong environment values %w", err)
 	}
 
 	if err := checkConfig(cfg); err != nil {
-		return nil, fmt.Errorf("ParseFlags: check config failed %w", err)
+		return cfg, fmt.Errorf("ParseFlags: check config failed %w", err)
 	}
 
 	return cfg, nil
@@ -56,9 +56,9 @@ func checkConfig(cfg *Config) error {
 		return fmt.Errorf("CheckConfig: check accrual failed %w", err)
 	}
 
-	if cfg.GetDBuri() == "" {
-		return fmt.Errorf("CheckConfig: database address required")
-	}
+	// if cfg.GetDBuri() == "" {
+	// 	return fmt.Errorf("CheckConfig: database address required")
+	// }
 
 	if cfg.GetAccrualAddr() != "" {
 		if err := checkAddress(cfg.GetAccrualAddr()); err != nil {
