@@ -1,22 +1,32 @@
 package handlers
 
 import (
-	"database/sql"
+	"context"
 
-	"github.com/pavlegich/gophermart/internal/domains/user"
-	"github.com/pavlegich/gophermart/internal/infra/config"
+	"github.com/go-chi/chi/v5"
+	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
+	user "github.com/pavlegich/gophermart/internal/domains/user/controllers/http"
 )
 
 type Controller struct {
-	Config   *config.Config
-	Database *sql.DB
-	User     user.Service
+	user *user.Handler
 }
 
-func NewController(cfg *config.Config, db *sql.DB, user user.Service) *Controller {
+func NewController(user *user.Handler) *Controller {
 	return &Controller{
-		Config:   cfg,
-		Database: db,
-		User:     user,
+		user: user,
 	}
+}
+
+// Route регистрирует обработчики и мидлвары в роутере
+func (c *Controller) BuildRoute(ctx context.Context) *chi.Mux {
+	r := chi.NewRouter()
+
+	r.Use(middlewares.WithLogging)
+
+	r.Get("/", c.HandleMain)
+	r.Post("/api/user/register", c.user.HandleRegister)
+	r.Post("/api/user/login", c.user.HandleLogin)
+
+	return r
 }

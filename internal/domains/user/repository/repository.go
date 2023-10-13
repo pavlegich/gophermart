@@ -23,6 +23,45 @@ func New(db *sql.DB) *Repository {
 	}
 }
 
+func (r *Repository) GetUserByID(ctx context.Context, login string) (*user.User, error) {
+	if err := r.db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("GetUserByID: connection to database is died %w", err)
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByID: begin transaction failed %w", err)
+	}
+	defer tx.Rollback()
+
+	row, err := tx.QueryContext(ctx, "SELECT login, password FROM users WHERE login = $1", login)
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByID: read row from table failed %w", err)
+	}
+	defer row.Close()
+
+	var user user.User
+	row.Next()
+	if err := row.Scan(&user.Login, &user.Password); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errs.ErrUserNotFound
+		} else {
+			return nil, fmt.Errorf("GetUserByID: scan row failed %w", err)
+		}
+	}
+
+	err = row.Err()
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByID: row.Err %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("GetUserByID: commit transaction failed %w", err)
+	}
+
+	return &user, nil
+}
+
 // GetUsers возвращает список пользователей
 func (r *Repository) GetUsers(ctx context.Context) ([]*user.User, error) {
 	return nil, nil

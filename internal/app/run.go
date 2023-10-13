@@ -11,6 +11,7 @@ import (
 	"github.com/pavlegich/gophermart/internal/controllers/handlers"
 	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
 	"github.com/pavlegich/gophermart/internal/domains/user"
+	userHandler "github.com/pavlegich/gophermart/internal/domains/user/controllers/http"
 	userRepo "github.com/pavlegich/gophermart/internal/domains/user/repository"
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/db"
@@ -44,13 +45,14 @@ func Run() error {
 	// Сервисы
 	userService := user.NewUserService(userRepo.New(db))
 
-	// Контроллер
-	controller := handlers.NewController(cfg, db, userService)
+	// Контроллеры
+	user := userHandler.NewHandler(cfg, userService)
+	server := handlers.NewController(user)
 
 	// Роутер
 	r := chi.NewRouter()
 	r.Use(middlewares.Recovery)
-	r.Mount("/", controller.Route(ctx))
+	r.Mount("/", server.BuildRoute(ctx))
 
 	logger.Log.Info("Running server", zap.String("address", cfg.Address))
 

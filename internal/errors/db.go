@@ -5,5 +5,7 @@ import (
 )
 
 var (
-	ErrLoginBusy = errors.New("login is busy")
+	ErrLoginBusy        = errors.New("login is busy")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrPasswordNotMatch = errors.New("passwords do not match")
 )
