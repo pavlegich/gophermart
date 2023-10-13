@@ -22,7 +22,7 @@ func Run() error {
 	ctx := context.Background()
 
 	// Логгер
-	if err := logger.Initialize(ctx, "Info"); err != nil {
+	if err := logger.Init(ctx, "Info"); err != nil {
 		return fmt.Errorf("Run: logger initialization failed %w", err)
 	}
 	defer logger.Log.Sync()
@@ -34,20 +34,20 @@ func Run() error {
 	}
 
 	// База данных
-	db, err := db.Init(ctx, cfg.Database)
+	db, err := db.Init(ctx, cfg.GetDBuri())
 	if err != nil {
 		return fmt.Errorf("Run: database initialization failed %w", err)
 	}
 
-	// Контроллер
+	// // Контроллер
 	server := handlers.NewController(db, cfg)
 
-	// Роутер
+	// // Роутер
 	r := chi.NewRouter()
 	r.Use(middlewares.Recovery)
 	r.Mount("/", server.BuildRoute(ctx))
 
-	logger.Log.Info("Running server", zap.String("address", cfg.Address))
+	logger.Log.Info("Running server", zap.String("address", cfg.GetAddress()))
 
-	return http.ListenAndServe(cfg.Address, r)
+	return http.ListenAndServe(cfg.GetAddress(), r)
 }

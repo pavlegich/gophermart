@@ -12,18 +12,30 @@ import (
 
 // Config хранит значения флагов или переменных окружения
 type Config struct {
-	Address  string `env:"RUN_ADDRESS"`
-	Database string `env:"DATABASE_URI"`
-	Accrual  string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	address  string `env:"RUN_ADDRESS"`
+	database string `env:"DATABASE_URI"`
+	accrual  string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+}
+
+func (c *Config) GetAddress() string {
+	return c.address
+}
+
+func (c *Config) GetDBuri() string {
+	return c.database
+}
+
+func (c *Config) GetAccrualAddr() string {
+	return c.accrual
 }
 
 // ParseFlags обрабатывает значения флагов и переменных окружения
 func ParseFlags(ctx context.Context) (*Config, error) {
 	cfg := &Config{}
 
-	flag.StringVar(&cfg.Address, "a", "localhost:8080", "Gophermart service running host:port")
-	flag.StringVar(&cfg.Database, "d", "postgresql://localhost:5432/gophermart", "URI (DSN) to database")
-	flag.StringVar(&cfg.Accrual, "r", "", "Accrual service host:port")
+	flag.StringVar(&cfg.address, "a", "localhost:8080", "Gophermart service running host:port")
+	flag.StringVar(&cfg.database, "d", "postgresql://localhost:5432/gophermart", "URI (DSN) to database")
+	flag.StringVar(&cfg.accrual, "r", "", "Accrual service host:port")
 
 	flag.Parse()
 
@@ -40,16 +52,16 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 
 // checkConfig проверяет корректность полученных данных конфигурации
 func checkConfig(cfg *Config) error {
-	if err := checkAddress(cfg.Address); err != nil {
+	if err := checkAddress(cfg.GetAddress()); err != nil {
 		return fmt.Errorf("CheckConfig: check accrual failed %w", err)
 	}
 
-	if cfg.Database == "" {
+	if cfg.GetDBuri() == "" {
 		return fmt.Errorf("CheckConfig: database address required")
 	}
 
-	if cfg.Accrual != "" {
-		if err := checkAddress(cfg.Accrual); err != nil {
+	if cfg.GetAccrualAddr() != "" {
+		if err := checkAddress(cfg.GetAccrualAddr()); err != nil {
 			return fmt.Errorf("CheckConfig: check accrual failed %w", err)
 		}
 	}
