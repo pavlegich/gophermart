@@ -10,9 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/controllers/handlers"
 	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
-	"github.com/pavlegich/gophermart/internal/domains/user"
-	userHandler "github.com/pavlegich/gophermart/internal/domains/user/controllers/http"
-	userRepo "github.com/pavlegich/gophermart/internal/domains/user/repository"
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/db"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
@@ -42,12 +39,8 @@ func Run() error {
 		return fmt.Errorf("Run: database initialization failed %w", err)
 	}
 
-	// Сервисы
-	userService := user.NewUserService(userRepo.New(db))
-
-	// Контроллеры
-	user := userHandler.NewHandler(cfg, userService)
-	server := handlers.NewController(user)
+	// Контроллер
+	server := handlers.NewController(db, cfg)
 
 	// Роутер
 	r := chi.NewRouter()

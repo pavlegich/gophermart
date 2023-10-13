@@ -2,13 +2,14 @@ package http
 
 import (
 	"bytes"
-	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/domains/user"
+	repo "github.com/pavlegich/gophermart/internal/domains/user/repository"
 	errs "github.com/pavlegich/gophermart/internal/errors"
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/hash"
@@ -20,21 +21,18 @@ type Handler struct {
 	Service user.Service
 }
 
-func NewHandler(cfg *config.Config, s user.Service) *Handler {
-	return &Handler{
+func Activate(r *chi.Mux, cfg *config.Config, db *sql.DB) {
+	userService := user.NewUserService(repo.New(db))
+	newHandler(r, cfg, userService)
+}
+
+func newHandler(r *chi.Mux, cfg *config.Config, s user.Service) {
+	h := Handler{
 		Config:  cfg,
 		Service: s,
 	}
-}
-
-// Route регистрирует обработчики и мидлвары в роутере
-func (h *Handler) BuildRoute(ctx context.Context) *chi.Mux {
-	r := chi.NewRouter()
-
-	r.Post("/register", h.HandleRegister)
-	r.Post("/login", h.HandleLogin)
-
-	return r
+	r.Post("/api/user/register", h.HandleRegister)
+	r.Post("/api/user/login", h.HandleLogin)
 }
 
 // HandleRegister регистрирует нового пользователя
@@ -66,8 +64,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctx = context.WithValue(ctx, "Login", req.Login)
-	token, err := hash.BuildJWTString(ctx)
+	token, err := hash.BuildJWTString(ctx, req.Login)
 	if err != nil {
 		logger.Log.Info("HandleRegister: build token failed")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -114,8 +111,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx = context.WithValue(ctx, "Login", req.Login)
-	token, err := hash.BuildJWTString(ctx)
+	token, err := hash.BuildJWTString(ctx, req.Login)
 	if err != nil {
 		logger.Log.Info("HandleLogin: build token failed")
 		w.WriteHeader(http.StatusInternalServerError)

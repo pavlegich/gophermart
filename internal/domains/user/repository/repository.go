@@ -82,9 +82,9 @@ func (r *Repository) SaveUser(ctx context.Context, user *user.User) error {
 	defer tx.Rollback()
 
 	// Проверка отсутствия пользователя
-	user_id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", user.Login)
+	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", user.Login)
 	var tmp int
-	if err := user_id.Scan(&tmp); err != sql.ErrNoRows {
+	if err := id.Scan(&tmp); err != sql.ErrNoRows {
 		if err == nil {
 			return errs.ErrLoginBusy
 		} else {

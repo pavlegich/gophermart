@@ -13,24 +13,19 @@ type Claims struct {
 	login string
 }
 
-const TOKEN_EXP = time.Hour * 3
-const SECRET_KEY = "supersecretkey"
+const tokenExp = time.Hour * 3
+const secretKey = "supersecretkey"
 
 // BuildJWTString создаёт токен и возвращает его в виде строки
-func BuildJWTString(ctx context.Context) (string, error) {
-	login, ok := ctx.Value("Login").(string)
-	if !ok {
-		return "", fmt.Errorf("BuildJWTString: convert context value failed")
-	}
-
+func BuildJWTString(ctx context.Context, login string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenExp)),
 		},
 		login: login,
 	})
 
-	tokenString, err := token.SignedString([]byte(SECRET_KEY))
+	tokenString, err := token.SignedString([]byte(secretKey))
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +42,7 @@ func GetCredentials(tokenString string) (string, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("GetCredentials: unexpected signing method: %v", t.Header["alg"])
 			}
-			return []byte(SECRET_KEY), nil
+			return []byte(secretKey), nil
 		})
 	if err != nil {
 		return "", fmt.Errorf("GetCredentials: parse token failed %w", err)
