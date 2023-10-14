@@ -43,22 +43,18 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 		return cfg, fmt.Errorf("ParseFlags: wrong environment values %w", err)
 	}
 
-	if err := checkConfig(cfg); err != nil {
-		return cfg, fmt.Errorf("ParseFlags: check config failed %w", err)
-	}
-
 	return cfg, nil
 }
 
 // checkConfig проверяет корректность полученных данных конфигурации
-func checkConfig(cfg *Config) error {
+func CheckConfig(cfg *Config) error {
 	if err := checkAddress(cfg.GetAddress()); err != nil {
 		return fmt.Errorf("CheckConfig: check accrual failed %w", err)
 	}
 
-	// if cfg.GetDBuri() == "" {
-	// 	return fmt.Errorf("CheckConfig: database address required")
-	// }
+	if cfg.GetDBuri() == "" {
+		return fmt.Errorf("CheckConfig: database address required")
+	}
 
 	if cfg.GetAccrualAddr() != "" {
 		if err := checkAddress(cfg.GetAccrualAddr()); err != nil {
