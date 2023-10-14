@@ -36,7 +36,7 @@ func Run() error {
 	fmt.Printf("=====\nCONFIGURATION: %s\n=====\n", cfg)
 
 	// База данных
-	db, err := database.Init(ctx, cfg.GetDBuri())
+	db, err := database.Init(ctx, cfg.Database)
 	if err != nil {
 		return fmt.Errorf("Run: database initialization failed %w", err)
 	}
@@ -50,7 +50,7 @@ func Run() error {
 	r.Use(middlewares.Recovery)
 	r.Mount("/", server.BuildRoute(ctx))
 
-	logger.Log.Info("Running server", zap.String("address", cfg.GetAddress()))
+	logger.Log.Info("Running server", zap.String("address", cfg.Address))
 
-	return http.ListenAndServe(cfg.GetAddress(), r)
+	return http.ListenAndServe(cfg.Address, r)
 }
