@@ -8,35 +8,39 @@ import (
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
 
-// Service содержит указатель на базу данных
+// UserService содержит методы и данные сервиса пользователя
 type UserService struct {
-	repository Repository
+	repo Repository
 }
 
+// NewUserService возвращает новый сервис для пользователя
 func NewUserService(repo Repository) *UserService {
 	return &UserService{
-		repository: repo,
+		repo: repo,
 	}
 }
 
+// List возвращает список пользователей
 func (s *UserService) List(ctx context.Context) ([]*User, error) {
 	return nil, nil
 }
 
+// Register проверяет и сохраняет данные нового пользователя в хранилище
 func (s *UserService) Register(ctx context.Context, user *User) error {
-	if err := s.repository.SaveUser(ctx, user); err != nil {
+	if err := s.repo.SaveUser(ctx, user); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *UserService) Login(ctx context.Context, user *User) error {
-	storedUser, err := s.repository.GetUserByID(ctx, user.Login)
+// Login проверяет корректность полученных данных пользователя
+func (s *UserService) Login(ctx context.Context, user *User) (*User, error) {
+	storedUser, err := s.repo.GetUserByLogin(ctx, user.Login)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
-		return errs.ErrPasswordNotMatch
+		return nil, errs.ErrPasswordNotMatch
 	}
-	return nil
+	return storedUser, nil
 }

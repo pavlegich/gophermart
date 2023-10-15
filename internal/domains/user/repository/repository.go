@@ -17,46 +17,47 @@ type Repository struct {
 }
 
 // New создает новый repository для пользователя
-func New(db *sql.DB) *Repository {
+func NewUserRepo(db *sql.DB) *Repository {
 	return &Repository{
 		db: db,
 	}
 }
 
-func (r *Repository) GetUserByID(ctx context.Context, login string) (*user.User, error) {
+// GetUserByID возвращает конкретного пользователя из хранилища
+func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.User, error) {
+	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("GetUserByID: connection to database is died %w", err)
+		return nil, fmt.Errorf("GetUserByLogin: connection to database is died %w", err)
 	}
 
+	// Начало транзакции
 	tx, err := r.db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("GetUserByID: begin transaction failed %w", err)
+		return nil, fmt.Errorf("GetUserByLogin: begin transaction failed %w", err)
 	}
 	defer tx.Rollback()
 
-	row, err := tx.QueryContext(ctx, "SELECT login, password FROM users WHERE login = $1", login)
-	if err != nil {
-		return nil, fmt.Errorf("GetUserByID: read row from table failed %w", err)
-	}
-	defer row.Close()
+	// Выполнение запроса на получение строки с данными пользователя
+	row := tx.QueryRowContext(ctx, "SELECT id, login, password FROM users WHERE login = $1", login)
 
+	// Запись данных пользователя в структуру
 	var user user.User
-	row.Next()
-	if err := row.Scan(&user.Login, &user.Password); err != nil {
+	if err := row.Scan(&user.ID, &user.Login, &user.Password); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errs.ErrUserNotFound
 		} else {
-			return nil, fmt.Errorf("GetUserByID: scan row failed %w", err)
+			return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", err)
 		}
 	}
 
 	err = row.Err()
 	if err != nil {
-		return nil, fmt.Errorf("GetUserByID: row.Err %w", err)
+		return nil, fmt.Errorf("GetUserByLogin: row.Err %w", err)
 	}
 
+	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("GetUserByID: commit transaction failed %w", err)
+		return nil, fmt.Errorf("GetUserByLogin: commit transaction failed %w", err)
 	}
 
 	return &user, nil
@@ -68,7 +69,7 @@ func (r *Repository) GetUsers(ctx context.Context) ([]*user.User, error) {
 }
 
 // Save сохраняет данные пользователя в хранилище
-func (r *Repository) SaveUser(ctx context.Context, user *user.User) error {
+func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
 		return fmt.Errorf("SaveUser: connection to database in died %w", err)
@@ -82,7 +83,7 @@ func (r *Repository) SaveUser(ctx context.Context, user *user.User) error {
 	defer tx.Rollback()
 
 	// Проверка отсутствия пользователя
-	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", user.Login)
+	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
 	var tmp int
 	if err := id.Scan(&tmp); err != sql.ErrNoRows {
 		if err == nil {
@@ -99,15 +100,22 @@ func (r *Repository) SaveUser(ctx context.Context, user *user.User) error {
 	}
 	defer statement.Close()
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("SaveUser: hash generate failed %w", err)
 	}
 
 	// Исполнение запроса к базе данных
-	if _, err := statement.ExecContext(ctx, user.Login, hashedPassword); err != nil {
+	if _, err := statement.ExecContext(ctx, u.Login, hashedPassword); err != nil {
 		return fmt.Errorf("SaveUser: statement exec failed %w", err)
 	}
+
+	// Проверка присутствия пользователя
+	id = tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
+	if err := id.Scan(&tmp); err != nil {
+		return fmt.Errorf("SaveUser: saved user not found in table %w", err)
+	}
+	u.ID = tmp
 
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {

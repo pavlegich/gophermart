@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/controllers/middlewares"
+	orders "github.com/pavlegich/gophermart/internal/domains/order/controllers/http"
 	users "github.com/pavlegich/gophermart/internal/domains/user/controllers/http"
 	"github.com/pavlegich/gophermart/internal/infra/config"
 )
@@ -27,8 +28,10 @@ func (c *Controller) BuildRoute(ctx context.Context) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middlewares.WithLogging)
-	users.Activate(r, c.cfg, c.db)
+	r.Use(middlewares.WithAuth)
 	r.Get("/", c.HandleMain)
+	users.Activate(r, c.cfg, c.db)
+	orders.Activate(r, c.cfg, c.db)
 
 	return r
 }

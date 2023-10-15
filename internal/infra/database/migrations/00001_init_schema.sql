@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TYPE status AS ENUM ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED');
 CREATE TABLE IF NOT EXISTS orders (
     id serial PRIMARY KEY,
-    number integer UNIQUE NOT NULL,
+    number bigint UNIQUE NOT NULL,
     user_id integer REFERENCES users (id),
     status status,
     created_at timestamp DEFAULT NOW()

@@ -16,18 +16,21 @@ import (
 	"github.com/pavlegich/gophermart/internal/infra/logger"
 )
 
-type Handler struct {
+// UserHandler содержит интерфейсы и данные обработчика для пользователей
+type UserHandler struct {
 	Config  *config.Config
 	Service user.Service
 }
 
+// Activate активирует обработчик запросов для пользователя
 func Activate(r *chi.Mux, cfg *config.Config, db *sql.DB) {
-	userService := user.NewUserService(repo.New(db))
-	newHandler(r, cfg, userService)
+	s := user.NewUserService(repo.NewUserRepo(db))
+	newHandler(r, cfg, s)
 }
 
+// newHandler инициализирует обработчик запросов для пользователя
 func newHandler(r *chi.Mux, cfg *config.Config, s user.Service) {
-	h := Handler{
+	h := UserHandler{
 		Config:  cfg,
 		Service: s,
 	}
@@ -36,7 +39,7 @@ func newHandler(r *chi.Mux, cfg *config.Config, s user.Service) {
 }
 
 // HandleRegister регистрирует нового пользователя
-func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req user.User
 	var buf bytes.Buffer
@@ -64,7 +67,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	token, err := hash.BuildJWTString(ctx, req.Login)
+	token, err := hash.BuildJWTString(ctx, req.ID)
 	if err != nil {
 		logger.Log.Info("HandleRegister: build token failed")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -72,16 +75,19 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie := http.Cookie{
-		Name:     "auth",
-		Value:    token,
-		Secure:   true,
+		Name:  "auth",
+		Value: token,
+		Path:  "/api/user/",
+		// Secure:   true,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, &cookie)
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+// HandleLogin авторизует пользователя по полученным данным
+func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req user.User
 	var buf bytes.Buffer
@@ -97,7 +103,8 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Service.Login(ctx, &req); err != nil {
+	storedUser, err := h.Service.Login(ctx, &req)
+	if err != nil {
 		if errors.Is(err, errs.ErrUserNotFound) {
 			logger.Log.Info("HandleLogin: user is not found")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -111,7 +118,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := hash.BuildJWTString(ctx, req.Login)
+	token, err := hash.BuildJWTString(ctx, storedUser.ID)
 	if err != nil {
 		logger.Log.Info("HandleLogin: build token failed")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -119,10 +126,12 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie := http.Cookie{
-		Name:     "auth",
-		Value:    token,
-		Secure:   true,
+		Name:  "auth",
+		Value: token,
+		Path:  "/api/user/",
+		// Secure:   true,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, &cookie)
 	w.WriteHeader(http.StatusOK)

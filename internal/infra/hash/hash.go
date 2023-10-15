@@ -10,19 +10,19 @@ import (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	login string
+	ID int
 }
 
 const tokenExp = time.Hour * 3
 const secretKey = "supersecretkey"
 
 // BuildJWTString создаёт токен и возвращает его в виде строки
-func BuildJWTString(ctx context.Context, login string) (string, error) {
+func BuildJWTString(ctx context.Context, id int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenExp)),
 		},
-		login: login,
+		ID: id,
 	})
 
 	tokenString, err := token.SignedString([]byte(secretKey))
@@ -34,7 +34,7 @@ func BuildJWTString(ctx context.Context, login string) (string, error) {
 }
 
 // GetCredentials возвращает полученные из токена данные для аутентификации
-func GetCredentials(tokenString string) (string, error) {
+func GetCredentials(tokenString string) (int, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims,
@@ -45,11 +45,11 @@ func GetCredentials(tokenString string) (string, error) {
 			return []byte(secretKey), nil
 		})
 	if err != nil {
-		return "", fmt.Errorf("GetCredentials: parse token failed %w", err)
+		return -1, fmt.Errorf("GetCredentials: parse token failed %w", err)
 	}
 	if !token.Valid {
-		return "", fmt.Errorf("GetCredentials: token is not valid")
+		return -1, fmt.Errorf("GetCredentials: token is not valid")
 	}
 
-	return claims.login, nil
+	return claims.ID, nil
 }
