@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS orders (
     number text UNIQUE NOT NULL,
     user_id integer REFERENCES users (id),
     status status,
-    accrual decimal,
     created_at timestamp DEFAULT NOW()
 );
 

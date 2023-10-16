@@ -36,6 +36,7 @@ func newHandler(r *chi.Mux, cfg *config.Config, s user.Service) {
 	}
 	r.Post("/api/user/register", h.HandleRegister)
 	r.Post("/api/user/login", h.HandleLogin)
+	r.Post("/api/user/logout", h.HandleLogout)
 }
 
 // HandleRegister регистрирует нового пользователя
@@ -134,5 +135,17 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, &cookie)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *UserHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: "auth",
+		Path: "/api/user/",
+		// Secure:   true,
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+
 	w.WriteHeader(http.StatusOK)
 }

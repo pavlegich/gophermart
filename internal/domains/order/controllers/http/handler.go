@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/domains/order"
@@ -19,6 +20,13 @@ import (
 type OrderHandler struct {
 	Config  *config.Config
 	Service order.Service
+}
+
+type respOrder struct {
+	Number     string `json:"number"`
+	Status     string `json:"status"`
+	Accrual    int    `json:"accrual,omitempty"`
+	UploadedAt string `json:"uploaded_at"`
 }
 
 // Activate активирует обработчик запросов для заказов
@@ -66,7 +74,18 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respJSON, err := json.Marshal(orders)
+	resp := make([]respOrder, 0)
+	for _, o := range orders {
+		tmp := respOrder{
+			Number:     o.Number,
+			Status:     o.Status,
+			Accrual:    o.Accrual,
+			UploadedAt: o.CreatedAt.Format(time.RFC3339),
+		}
+		resp = append(resp, tmp)
+	}
+
+	respJSON, err := json.Marshal(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

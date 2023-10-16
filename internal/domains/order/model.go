@@ -6,12 +6,12 @@ import (
 )
 
 type Order struct {
-	ID       int       `json:"id,omitempty"`
-	Number   string    `json:"number,omitempty"`
-	UserID   int       `json:"user_id,omitempty"`
-	Status   string    `json:"status,omitempty"`
-	Accrual  int       `json:"accrual,omitempty"`
-	Uploaded time.Time `json:"uploaded_at,omitempty"`
+	ID        int       `json:"id,omitempty"`
+	Number    string    `json:"number,omitempty"`
+	UserID    int       `json:"user_id,omitempty"`
+	Status    string    `json:"status,omitempty"`
+	Accrual   int       `json:"accrual,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 type Service interface {
