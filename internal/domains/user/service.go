@@ -20,11 +20,6 @@ func NewUserService(repo Repository) *UserService {
 	}
 }
 
-// List возвращает список пользователей
-func (s *UserService) List(ctx context.Context) ([]*User, error) {
-	return nil, nil
-}
-
 // Register проверяет и сохраняет данные нового пользователя в хранилище
 func (s *UserService) Register(ctx context.Context, user *User) error {
 	if err := s.repo.SaveUser(ctx, user); err != nil {

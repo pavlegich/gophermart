@@ -11,12 +11,10 @@ import (
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
 
-// Reposity содержит указатель на базу данных
 type Repository struct {
 	db *sql.DB
 }
 
-// New создает новый repository для пользователя
 func NewUserRepo(db *sql.DB) *Repository {
 	return &Repository{
 		db: db,
@@ -61,11 +59,6 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 	}
 
 	return &user, nil
-}
-
-// GetUsers возвращает список пользователей
-func (r *Repository) GetUsers(ctx context.Context) ([]*user.User, error) {
-	return nil, nil
 }
 
 // Save сохраняет данные пользователя в хранилище

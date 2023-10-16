@@ -8,7 +8,6 @@ import (
 	"github.com/pavlegich/gophermart/internal/utils"
 )
 
-// OrderService содержит интерфефсы и данные сервиса заказов
 type OrderService struct {
 	repo Repository
 }

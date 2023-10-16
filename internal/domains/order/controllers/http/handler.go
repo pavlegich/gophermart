@@ -22,7 +22,7 @@ type OrderHandler struct {
 	Service order.Service
 }
 
-type respOrder struct {
+type responseOrder struct {
 	Number     string `json:"number"`
 	Status     string `json:"status"`
 	Accrual    int    `json:"accrual,omitempty"`
@@ -74,9 +74,9 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := make([]respOrder, 0)
+	resp := make([]responseOrder, 0)
 	for _, o := range orders {
-		tmp := respOrder{
+		tmp := responseOrder{
 			Number:     o.Number,
 			Status:     o.Status,
 			Accrual:    o.Accrual,

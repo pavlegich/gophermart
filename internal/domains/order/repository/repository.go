@@ -9,12 +9,10 @@ import (
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
 
-// Reposity содержит указатель на базу данных
 type Repository struct {
 	db *sql.DB
 }
 
-// New создает новый repository для пользователя
 func NewOrderRepo(db *sql.DB) *Repository {
 	return &Repository{
 		db: db,
@@ -36,7 +34,7 @@ func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order,
 	defer tx.Rollback()
 
 	// Получение данных заказа
-	rows, err := tx.QueryContext(ctx, "SELECT number, status, created_at FROM orders WHERE user_id = $1 "+
+	rows, err := tx.QueryContext(ctx, "SELECT id, number, user_id, status, created_at FROM orders WHERE user_id = $1 "+
 		"ORDER BY created_at DESC", userID)
 	if err != nil {
 		return nil, fmt.Errorf("GetOrders: read rows from table failed %w", err)
@@ -45,21 +43,22 @@ func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order,
 
 	storedOrders := make([]*order.Order, 0)
 	for rows.Next() {
-		var order order.Order
-		err = rows.Scan(&order.Number, &order.Status, &order.CreatedAt)
+		var ord order.Order
+		err = rows.Scan(&ord.ID, &ord.Number, &ord.UserID, &ord.Status, &ord.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("GetOrders: scan row failed %w", err)
 		}
 		// Получение значения поля accrual
-		if order.Status == "PROCESSED" {
-			accr := tx.QueryRowContext(ctx, "SELECT accrual FROM balances WHERE order_id = $1 AND action = ACCRUAL", order.ID)
+		if ord.Status == "PROCESSED" {
+			accr := tx.QueryRowContext(ctx, "SELECT accrual FROM balances "+
+				"WHERE order_id = $1 AND action = ACCRUAL", ord.ID)
 			var tmp int
 			if err := accr.Scan(&tmp); err != nil {
 				return nil, fmt.Errorf("GetOrders: scan accrual failed %w", err)
 			}
-			order.Accrual = tmp
+			ord.Accrual = tmp
 		}
-		storedOrders = append(storedOrders, &order)
+		storedOrders = append(storedOrders, &ord)
 	}
 
 	err = rows.Err()
