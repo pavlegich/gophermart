@@ -42,7 +42,7 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 	var user user.User
 	if err := row.Scan(&user.ID, &user.Login, &user.Password); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errs.ErrUserNotFound
+			return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", errs.ErrUserNotFound)
 		} else {
 			return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", err)
 		}
@@ -80,9 +80,9 @@ func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 	var tmp int
 	if err := id.Scan(&tmp); err != sql.ErrNoRows {
 		if err == nil {
-			return errs.ErrLoginBusy
+			return fmt.Errorf("SaveUser: scan row with user id failed %w", errs.ErrLoginBusy)
 		} else {
-			return fmt.Errorf("SaveUser: query row failed %w", err)
+			return fmt.Errorf("SaveUser: scan row with user id failed %w", err)
 		}
 	}
 

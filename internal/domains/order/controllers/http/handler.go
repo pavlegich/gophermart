@@ -16,6 +16,7 @@ import (
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
 	"github.com/pavlegich/gophermart/internal/utils"
+	"go.uber.org/zap"
 )
 
 type OrderHandler struct {
@@ -74,10 +75,12 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	ordersList, err := h.Service.List(ctx, userID)
 	if err != nil {
 		if errors.Is(err, errs.ErrOrdersNotFound) {
-			logger.Log.Info("HandleOrdersGet: orders not found for this user")
+			logger.Log.Info("HandleOrdersGet: orders not found for this user",
+				zap.Error(err))
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			logger.Log.Info("HandleOrdersGet: get orders list failed")
+			logger.Log.Info("HandleOrdersGet: get orders list failed",
+				zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
@@ -96,6 +99,8 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
+		logger.Log.Info("HandleOrdersGet: response marshal failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -112,7 +117,8 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleOrdersUpload: read body failed")
+		logger.Log.Info("HandleOrdersUpload: read request body failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -135,18 +141,16 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 
 	if err := h.Service.Create(ctx, &req); err != nil {
 		if errors.Is(err, errs.ErrOrderAlreadyUpload) {
-			logger.Log.Info("HandleOrdersUpload: order already uploaded by this user")
 			w.WriteHeader(http.StatusOK)
 		} else if errors.Is(err, errs.ErrOrderUploadByAnother) {
-			logger.Log.Info("HandleOrdersUpload: order uploaded by another user")
 			w.WriteHeader(http.StatusConflict)
 		} else if errors.Is(err, errs.ErrIncorrectNumberFormat) {
-			logger.Log.Info("HandleOrdersUpload: order has incorrect number format")
 			w.WriteHeader(http.StatusUnprocessableEntity)
 		} else {
-			logger.Log.Info("HandleOrdersUpload: order upload failed")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+		logger.Log.Info("HandleOrdersUpload: create new order failed",
+			zap.Error(err))
 		return
 	}
 

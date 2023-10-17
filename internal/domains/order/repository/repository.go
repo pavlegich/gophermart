@@ -44,8 +44,7 @@ func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order,
 	storedOrders := make([]*order.Order, 0)
 	for rows.Next() {
 		var ord order.Order
-		err = rows.Scan(&ord.ID, &ord.Number, &ord.UserID, &ord.Status, &ord.Accrual, &ord.CreatedAt)
-		if err != nil {
+		if err := rows.Scan(&ord.ID, &ord.Number, &ord.UserID, &ord.Status, &ord.Accrual, &ord.CreatedAt); err != nil {
 			return nil, fmt.Errorf("GetOrders: scan row failed %w", err)
 		}
 		storedOrders = append(storedOrders, &ord)
@@ -84,9 +83,9 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	if err := userID.Scan(&tmp); err != sql.ErrNoRows {
 		if err == nil {
 			if ord.UserID == tmp {
-				return errs.ErrOrderAlreadyUpload
+				return fmt.Errorf("CrateOrder: %w", errs.ErrOrderAlreadyUpload)
 			} else {
-				return errs.ErrOrderUploadByAnother
+				return fmt.Errorf("CrateOrder: %w", errs.ErrOrderUploadByAnother)
 			}
 		} else {
 			return fmt.Errorf("CreateOrder: query row failed %w", err)
@@ -163,15 +162,15 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 	// Сохранение информации о начислении, если заказ обработан
 	if ord.Status == "PROCESSED" {
 		// Проверка отсутствия заказа
-		userID := tx.QueryRowContext(ctx, "SELECT user_id FROM balances WHERE order_id = $1 "+
-			"AND action = 'ACCRUAL'", ord.ID)
+		userID := tx.QueryRowContext(ctx, "SELECT user_id FROM balances WHERE order_number = $1 "+
+			"AND action = 'ACCRUAL'", ord.Number)
 		var tmp int
 		if err := userID.Scan(&tmp); err != sql.ErrNoRows {
 			if err == nil {
 				if ord.UserID == tmp {
-					return errs.ErrOrderAlreadyUpload
+					return fmt.Errorf("SaveOrder: %w", errs.ErrOrderAlreadyUpload)
 				} else {
-					return errs.ErrOrderUploadByAnother
+					return fmt.Errorf("SaveOrder: %w", errs.ErrOrderUploadByAnother)
 				}
 			} else {
 				return fmt.Errorf("SaveOrder: get order from table balances failed %w", err)
@@ -180,14 +179,14 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 
 		// Подготовка запроса к базе данных
 		statement, err := tx.PrepareContext(ctx, "INSERT INTO balances "+
-			"(action, amount, user_id, order_id) VALUES ('ACCRUAL', $1, $2, $3)")
+			"(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)")
 		if err != nil {
 			return fmt.Errorf("SaveOrder: insert into table balances failed %w", err)
 		}
 		defer statement.Close()
 
 		// Исполнение запроса к базе данных
-		if _, err := statement.ExecContext(ctx, ord.Accrual, ord.UserID, ord.ID); err != nil {
+		if _, err := statement.ExecContext(ctx, ord.Accrual, ord.UserID, ord.Number); err != nil {
 			return fmt.Errorf("SaveOrder: statement exec into balances failed %w", err)
 		}
 	}

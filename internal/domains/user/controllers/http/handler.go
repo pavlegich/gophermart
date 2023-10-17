@@ -14,6 +14,7 @@ import (
 	"github.com/pavlegich/gophermart/internal/infra/config"
 	"github.com/pavlegich/gophermart/internal/infra/hash"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
+	"go.uber.org/zap"
 )
 
 // UserHandler содержит интерфейсы и данные обработчика для пользователей
@@ -46,31 +47,33 @@ func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleRegister: read body failed")
+		logger.Log.Info("HandleRegister: read request body failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
-		logger.Log.Info("HandleRegister: unmarshal failed")
+		logger.Log.Info("HandleRegister: request unmarshal failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if err := h.Service.Register(ctx, &req); err != nil {
 		if errors.Is(err, errs.ErrLoginBusy) {
-			logger.Log.Info("HandleRegister: login is already busy")
 			w.WriteHeader(http.StatusConflict)
-			return
 		} else {
-			logger.Log.Info("HandleRegister: register user failed")
 			w.WriteHeader(http.StatusInternalServerError)
-			return
 		}
+		logger.Log.Info("HandleRegister: user register failed",
+			zap.Error(err))
+		return
 	}
 
 	token, err := hash.BuildJWTString(ctx, req.ID)
 	if err != nil {
-		logger.Log.Info("HandleRegister: build token failed")
+		logger.Log.Info("HandleRegister: build token failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -94,12 +97,14 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleLogin: read body failed")
+		logger.Log.Info("HandleLogin: read request body failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
-		logger.Log.Info("HandleLogin: unmarshal failed")
+		logger.Log.Info("HandleLogin: request unmarshal failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -107,21 +112,21 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	storedUser, err := h.Service.Login(ctx, &req)
 	if err != nil {
 		if errors.Is(err, errs.ErrUserNotFound) {
-			logger.Log.Info("HandleLogin: user is not found")
 			w.WriteHeader(http.StatusUnauthorized)
 		} else if errors.Is(err, errs.ErrPasswordNotMatch) {
-			logger.Log.Info("HandleLogin: passwords do not match")
 			w.WriteHeader(http.StatusUnauthorized)
 		} else {
-			logger.Log.Info("HandleLogin: login failed")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+		logger.Log.Info("HandleLogin: user login failed",
+			zap.Error(err))
 		return
 	}
 
 	token, err := hash.BuildJWTString(ctx, storedUser.ID)
 	if err != nil {
-		logger.Log.Info("HandleLogin: build token failed")
+		logger.Log.Info("HandleLogin: build token failed",
+			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

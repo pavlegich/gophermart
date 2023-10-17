@@ -39,7 +39,6 @@ func (s *OrderService) Create(ctx context.Context, ord *Order) error {
 func (s *OrderService) List(ctx context.Context, userID int) ([]*Order, error) {
 	orders, err := s.repo.GetOrders(ctx, userID)
 	if err != nil {
-		fmt.Println("ERROR:", err)
 		return nil, fmt.Errorf("List: get orders list failed %w", err)
 	}
 	if len(orders) == 0 {

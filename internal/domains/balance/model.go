@@ -10,14 +10,16 @@ type Balance struct {
 	Action    string    `json:"action"`
 	Amount    float32   `json:"amount"`
 	UserID    int       `json:"user_id,omitempty"`
-	OrderID   int       `json:"order_id"`
+	Order     string    `json:"order"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 type Service interface {
 	List(ctx context.Context, userID int) ([]*Balance, error)
+	Withdraw(ctx context.Context, balance *Balance) error
 }
 
 type Repository interface {
-	GetBalanceActions(ctx context.Context, userID int) ([]*Balance, error)
+	GetBalanceOperations(ctx context.Context, userID int) ([]*Balance, error)
+	UploadWithdrawal(ctx context.Context, balance *Balance) error
 }

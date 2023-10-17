@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS balances (
     action action NOT NULL,
     amount decimal NOT NULL,
     user_id integer REFERENCES users (id),
-    order_id integer REFERENCES orders (id),
+    order_number text,
     created_at timestamp DEFAULT NOW()
 );
 
