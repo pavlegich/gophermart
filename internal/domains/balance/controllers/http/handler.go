@@ -129,6 +129,7 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
 		logger.Log.Info("HandleBalanceWithdraw: request unmarshal failed",
+			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return

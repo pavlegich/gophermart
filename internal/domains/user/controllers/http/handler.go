@@ -54,6 +54,7 @@ func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
 		logger.Log.Info("HandleRegister: request unmarshal failed",
+			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -104,6 +105,7 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
 		logger.Log.Info("HandleLogin: request unmarshal failed",
+			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return

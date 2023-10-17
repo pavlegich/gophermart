@@ -79,10 +79,10 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 
 	// Проверка отсутствия заказа
 	userID := tx.QueryRowContext(ctx, "SELECT user_id FROM orders WHERE number = $1", ord.Number)
-	var tmp int
-	if err := userID.Scan(&tmp); err != sql.ErrNoRows {
+	var storedUserID int
+	if err := userID.Scan(&storedUserID); err != sql.ErrNoRows {
 		if err == nil {
-			if ord.UserID == tmp {
+			if ord.UserID == storedUserID {
 				return fmt.Errorf("CrateOrder: %w", errs.ErrOrderAlreadyUpload)
 			} else {
 				return fmt.Errorf("CrateOrder: %w", errs.ErrOrderUploadByAnother)
@@ -138,11 +138,11 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 
 	// Проверка отсутствия обработки заказа
 	ordStatus := tx.QueryRowContext(ctx, "SELECT status FROM orders WHERE id = $1", ord.ID)
-	var tmp string
-	if err := ordStatus.Scan(&tmp); err != nil {
+	var storedStatus string
+	if err := ordStatus.Scan(&storedStatus); err != nil {
 		return fmt.Errorf("SaveOrder: scan row with status failed %w", err)
 	}
-	if tmp == "INVALID" || tmp == "PROCESSED" {
+	if storedStatus == "INVALID" || storedStatus == "PROCESSED" {
 		return fmt.Errorf("SaveOrder: order check failed %w", errs.ErrOrderAlreadyProcessed)
 	}
 
@@ -164,10 +164,10 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 		// Проверка отсутствия заказа
 		userID := tx.QueryRowContext(ctx, "SELECT user_id FROM balances WHERE order_number = $1 "+
 			"AND action = 'ACCRUAL'", ord.Number)
-		var tmp int
-		if err := userID.Scan(&tmp); err != sql.ErrNoRows {
+		var storedUserID int
+		if err := userID.Scan(&storedUserID); err != sql.ErrNoRows {
 			if err == nil {
-				if ord.UserID == tmp {
+				if ord.UserID == storedUserID {
 					return fmt.Errorf("SaveOrder: %w", errs.ErrOrderAlreadyUpload)
 				} else {
 					return fmt.Errorf("SaveOrder: %w", errs.ErrOrderUploadByAnother)

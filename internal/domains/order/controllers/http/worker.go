@@ -47,7 +47,7 @@ func worker(ctx context.Context, h *OrderHandler, jobs <-chan order.Order) error
 			respJSON, err := utils.GetRequestWithRetry(ctx, req)
 			if err != nil {
 				logger.Log.Info("worker: request to accrual system failed",
-					zap.String("url", reqURL))
+					zap.String("url", req.RequestURI))
 				continue
 			}
 
@@ -60,7 +60,7 @@ func worker(ctx context.Context, h *OrderHandler, jobs <-chan order.Order) error
 			}
 			if err := json.Unmarshal(buf.Bytes(), &resp); err != nil {
 				logger.Log.Info("worker: response unmarshal failed",
-					zap.String("response", buf.String()),
+					zap.String("body", buf.String()),
 					zap.Error(err))
 				continue
 			}

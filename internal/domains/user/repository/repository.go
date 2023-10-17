@@ -77,8 +77,8 @@ func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 
 	// Проверка отсутствия пользователя
 	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
-	var tmp int
-	if err := id.Scan(&tmp); err != sql.ErrNoRows {
+	var storedID int
+	if err := id.Scan(&storedID); err != sql.ErrNoRows {
 		if err == nil {
 			return fmt.Errorf("SaveUser: scan row with user id failed %w", errs.ErrLoginBusy)
 		} else {
@@ -105,10 +105,10 @@ func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 
 	// Проверка присутствия пользователя
 	id = tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
-	if err := id.Scan(&tmp); err != nil {
+	if err := id.Scan(&storedID); err != nil {
 		return fmt.Errorf("SaveUser: saved user not found in table %w", err)
 	}
-	u.ID = tmp
+	u.ID = storedID
 
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
