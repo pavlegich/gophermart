@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TYPE action AS ENUM ('ACCRUAL', 'WITHDRAWAL');
 CREATE TABLE IF NOT EXISTS balances (
     id serial PRIMARY KEY,
-    action action,
-    amount decimal,
+    action action NOT NULL,
+    amount decimal NOT NULL,
     user_id integer REFERENCES users (id),
-    order_id integer NOT NULL REFERENCES orders (id),
+    order_id integer REFERENCES orders (id),
     created_at timestamp DEFAULT NOW()
 );
 

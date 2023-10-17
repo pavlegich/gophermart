@@ -31,6 +31,7 @@ func (c *Controller) BuildRoute(ctx context.Context) (*chi.Mux, error) {
 	r.Use(middlewares.WithLogging)
 	r.Use(middlewares.WithAuth)
 	r.Get("/", c.HandleMain)
+
 	users.Activate(r, c.cfg, c.db)
 	orders.Activate(ctx, r, c.cfg, c.db)
 	balances.Activate(r, c.cfg, c.db)

@@ -19,10 +19,9 @@ import (
 )
 
 type OrderHandler struct {
-	Config    *config.Config
-	Service   order.Service
-	Jobs      chan order.Order
-	RateLimit int
+	Config  *config.Config
+	Service order.Service
+	Jobs    chan order.Order
 }
 
 type responseOrder struct {
@@ -40,18 +39,17 @@ func Activate(ctx context.Context, r *chi.Mux, cfg *config.Config, db *sql.DB) {
 
 // newHandler инициализирует обработчик запросов для заказов
 func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Service) {
-	j := make(chan order.Order)
-	rl := 1
+	jobs := make(chan order.Order)
 	h := OrderHandler{
-		Config:    cfg,
-		Service:   s,
-		Jobs:      j,
-		RateLimit: rl,
+		Config:  cfg,
+		Service: s,
+		Jobs:    jobs,
 	}
 	r.Post("/api/user/orders", h.HandleOrdersUpload)
 	r.Get("/api/user/orders", h.HandleOrdersGet)
 
-	for w := 1; w <= h.RateLimit; w++ {
+	rateLimit := 1
+	for w := 1; w <= rateLimit; w++ {
 		go worker(ctx, &h, h.Jobs)
 	}
 }
@@ -87,15 +85,6 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]responseOrder, 0)
 	for _, o := range ordersList {
-		if o.Status == "NEW" {
-			h.Jobs <- order.Order{
-				ID:        o.ID,
-				Number:    o.Number,
-				UserID:    o.UserID,
-				Status:    o.Status,
-				CreatedAt: o.CreatedAt,
-			}
-		}
 		tmp := responseOrder{
 			Number:     o.Number,
 			Status:     o.Status,

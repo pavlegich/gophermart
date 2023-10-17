@@ -160,6 +160,38 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 		return fmt.Errorf("SaveOrder: statement exec failed %w", err)
 	}
 
+	// Сохранение информации о начислении, если заказ обработан
+	if ord.Status == "PROCESSED" {
+		// Проверка отсутствия заказа
+		userID := tx.QueryRowContext(ctx, "SELECT user_id FROM balances WHERE order_id = $1 "+
+			"AND action = 'ACCRUAL'", ord.ID)
+		var tmp int
+		if err := userID.Scan(&tmp); err != sql.ErrNoRows {
+			if err == nil {
+				if ord.UserID == tmp {
+					return errs.ErrOrderAlreadyUpload
+				} else {
+					return errs.ErrOrderUploadByAnother
+				}
+			} else {
+				return fmt.Errorf("SaveOrder: get order from table balances failed %w", err)
+			}
+		}
+
+		// Подготовка запроса к базе данных
+		statement, err := tx.PrepareContext(ctx, "INSERT INTO balances "+
+			"(action, amount, user_id, order_id) VALUES ('ACCRUAL', $1, $2, $3)")
+		if err != nil {
+			return fmt.Errorf("SaveOrder: insert into table balances failed %w", err)
+		}
+		defer statement.Close()
+
+		// Исполнение запроса к базе данных
+		if _, err := statement.ExecContext(ctx, ord.Accrual, ord.UserID, ord.ID); err != nil {
+			return fmt.Errorf("SaveOrder: statement exec into balances failed %w", err)
+		}
+	}
+
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("SaveOrder: commit transaction failed %w", err)
