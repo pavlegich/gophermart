@@ -101,6 +101,11 @@ func (r *Repository) UploadWithdrawal(ctx context.Context, bal *balance.Balance)
 		}
 	}
 
+	err = rows.Err()
+	if err != nil {
+		return fmt.Errorf("UploadWithdrawal: rows.Err %w", err)
+	}
+
 	if uBalance-bal.Amount < 0 {
 		return fmt.Errorf("UploadWithdrawal: %w", errs.ErrInsufficientFunds)
 	}
