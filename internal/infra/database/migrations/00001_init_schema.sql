@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS orders (
     id serial PRIMARY KEY,
     number text UNIQUE NOT NULL,
     user_id integer REFERENCES users (id),
-    status status,
+    status status DEFAULT 'NEW',
+    accrual decimal DEFAULT 0,
     created_at timestamp DEFAULT NOW()
 );
 

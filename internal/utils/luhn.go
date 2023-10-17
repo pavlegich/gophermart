@@ -5,13 +5,14 @@ func LuhnValid(number int) bool {
 	return (number%10+checksum(number/10))%10 == 0
 }
 
+// checkSum проверяет часть номера на корректность по алгоритму Luhn
 func checksum(number int) int {
 	var luhn int
 
 	for i := 0; number > 0; i++ {
 		cur := number % 10
 
-		if i%2 == 0 { // even
+		if i%2 == 0 {
 			cur = cur * 2
 			if cur > 9 {
 				cur = cur%10 + cur/10

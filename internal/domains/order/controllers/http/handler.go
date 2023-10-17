@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -18,31 +19,41 @@ import (
 )
 
 type OrderHandler struct {
-	Config  *config.Config
-	Service order.Service
+	Config    *config.Config
+	Service   order.Service
+	Jobs      chan order.Order
+	RateLimit int
 }
 
 type responseOrder struct {
-	Number     string `json:"number"`
-	Status     string `json:"status"`
-	Accrual    int    `json:"accrual,omitempty"`
-	UploadedAt string `json:"uploaded_at"`
+	Number     string  `json:"number"`
+	Status     string  `json:"status"`
+	Accrual    float32 `json:"accrual,omitempty"`
+	UploadedAt string  `json:"uploaded_at"`
 }
 
 // Activate активирует обработчик запросов для заказов
-func Activate(r *chi.Mux, cfg *config.Config, db *sql.DB) {
+func Activate(ctx context.Context, r *chi.Mux, cfg *config.Config, db *sql.DB) {
 	s := order.NewOrderService(repo.NewOrderRepo(db))
-	newHandler(r, cfg, s)
+	newHandler(ctx, r, cfg, s)
 }
 
 // newHandler инициализирует обработчик запросов для заказов
-func newHandler(r *chi.Mux, cfg *config.Config, s order.Service) {
+func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Service) {
+	j := make(chan order.Order)
+	rl := 1
 	h := OrderHandler{
-		Config:  cfg,
-		Service: s,
+		Config:    cfg,
+		Service:   s,
+		Jobs:      j,
+		RateLimit: rl,
 	}
 	r.Post("/api/user/orders", h.HandleOrdersUpload)
 	r.Get("/api/user/orders", h.HandleOrdersGet)
+
+	for w := 1; w <= h.RateLimit; w++ {
+		go worker(ctx, &h, h.Jobs)
+	}
 }
 
 // HandleOrdersGet передаёт список заказов пользователя
@@ -62,20 +73,29 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orders, err := h.Service.List(ctx, userID)
+	ordersList, err := h.Service.List(ctx, userID)
 	if err != nil {
 		if errors.Is(err, errs.ErrOrdersNotFound) {
 			logger.Log.Info("HandleOrdersGet: orders not found for this user")
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			logger.Log.Info("HandleOrdersUpload: order upload failed")
+			logger.Log.Info("HandleOrdersGet: get orders list failed")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
 	}
 
 	resp := make([]responseOrder, 0)
-	for _, o := range orders {
+	for _, o := range ordersList {
+		if o.Status == "NEW" {
+			h.Jobs <- order.Order{
+				ID:        o.ID,
+				Number:    o.Number,
+				UserID:    o.UserID,
+				Status:    o.Status,
+				CreatedAt: o.CreatedAt,
+			}
+		}
 		tmp := responseOrder{
 			Number:     o.Number,
 			Status:     o.Status,
@@ -124,7 +144,7 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 	}
 	req.UserID = userID
 
-	if err := h.Service.Upload(ctx, &req); err != nil {
+	if err := h.Service.Create(ctx, &req); err != nil {
 		if errors.Is(err, errs.ErrOrderAlreadyUpload) {
 			logger.Log.Info("HandleOrdersUpload: order already uploaded by this user")
 			w.WriteHeader(http.StatusOK)
@@ -139,6 +159,14 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
+	}
+
+	h.Jobs <- order.Order{
+		ID:        req.ID,
+		Number:    req.Number,
+		UserID:    req.UserID,
+		Status:    req.Status,
+		CreatedAt: req.CreatedAt,
 	}
 
 	w.WriteHeader(http.StatusAccepted)

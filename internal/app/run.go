@@ -44,11 +44,15 @@ func Run() error {
 
 	// Контроллер
 	server := handlers.NewController(db, cfg)
+	serverRouter, err := server.BuildRoute(ctx)
+	if err != nil {
+		return fmt.Errorf("Run: build server router failed %w", err)
+	}
 
 	// Роутер
 	r := chi.NewRouter()
 	r.Use(middlewares.Recovery)
-	r.Mount("/", server.BuildRoute(ctx))
+	r.Mount("/", serverRouter)
 
 	logger.Log.Info("Running server", zap.String("address", cfg.Address))
 
