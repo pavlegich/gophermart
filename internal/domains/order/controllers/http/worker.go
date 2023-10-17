@@ -60,6 +60,7 @@ func worker(ctx context.Context, h *OrderHandler, jobs <-chan order.Order) error
 			}
 			if err := json.Unmarshal(buf.Bytes(), &resp); err != nil {
 				logger.Log.Info("worker: response unmarshal failed",
+					zap.String("response", buf.String()),
 					zap.Error(err))
 				continue
 			}

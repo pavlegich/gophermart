@@ -13,9 +13,7 @@ func Recovery(next http.Handler) http.Handler {
 		defer func() {
 			err := recover()
 			if err != nil {
-				logger.Log.Error("Recovery: server router panic", zap.Any("error", err))
-
-				w.Header().Set("Content-Type", "text/plain")
+				logger.Log.Info("Recovery: server router panic", zap.Any("error", err))
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}()

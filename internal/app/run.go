@@ -33,8 +33,6 @@ func Run() error {
 		return fmt.Errorf("Run: parse flags failed %w", err)
 	}
 
-	fmt.Printf("=====\nCONFIGURATION: %s\n=====\n", cfg)
-
 	// База данных
 	db, err := database.Init(ctx, cfg.Database)
 	if err != nil {
