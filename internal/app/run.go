@@ -42,10 +42,7 @@ func Run() error {
 
 	// Контроллер
 	server := handlers.NewController(db, cfg)
-	serverRouter, err := server.BuildRoute(ctx)
-	if err != nil {
-		return fmt.Errorf("Run: build server router failed %w", err)
-	}
+	serverRouter := server.BuildRoute(ctx)
 
 	// Роутер
 	r := chi.NewRouter()

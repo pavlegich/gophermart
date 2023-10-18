@@ -8,7 +8,7 @@ import (
 )
 
 // Recovery восстанавливает работу в случае паники при запуске
-func Recovery(next http.Handler) http.Handler {
+func Recovery(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			err := recover()
@@ -17,6 +17,6 @@ func Recovery(next http.Handler) http.Handler {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}()
-		next.ServeHTTP(w, r)
+		h.ServeHTTP(w, r)
 	})
 }

@@ -25,7 +25,7 @@ func NewController(db *sql.DB, cfg *config.Config) *Controller {
 }
 
 // BuildRoute регистрирует обработчики и мидлвары в роутере
-func (c *Controller) BuildRoute(ctx context.Context) (*chi.Mux, error) {
+func (c *Controller) BuildRoute(ctx context.Context) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middlewares.WithLogging)
@@ -36,5 +36,5 @@ func (c *Controller) BuildRoute(ctx context.Context) (*chi.Mux, error) {
 	orders.Activate(ctx, r, c.cfg, c.db)
 	balances.Activate(r, c.cfg, c.db)
 
-	return r, nil
+	return r
 }

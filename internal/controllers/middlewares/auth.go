@@ -20,11 +20,10 @@ func WithAuth(h http.Handler) http.Handler {
 		if err != nil {
 			if err == http.ErrNoCookie {
 				w.WriteHeader(http.StatusUnauthorized)
-				return
 			} else {
 				w.WriteHeader(http.StatusBadRequest)
-				return
 			}
+			return
 		}
 		id, err := hash.GetCredentials(cookie.Value)
 		if err != nil {

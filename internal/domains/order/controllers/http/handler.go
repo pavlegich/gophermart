@@ -22,7 +22,7 @@ import (
 type OrderHandler struct {
 	Config  *config.Config
 	Service order.Service
-	Jobs    chan order.Order
+	Jobs    chan []order.Order
 }
 
 type responseOrder struct {
@@ -40,7 +40,7 @@ func Activate(ctx context.Context, r *chi.Mux, cfg *config.Config, db *sql.DB) {
 
 // newHandler инициализирует обработчик запросов для заказов
 func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Service) {
-	jobs := make(chan order.Order)
+	jobs := make(chan []order.Order)
 	h := OrderHandler{
 		Config:  cfg,
 		Service: s,
@@ -49,9 +49,8 @@ func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Ser
 	r.Post("/api/user/orders", h.HandleOrdersUpload)
 	r.Get("/api/user/orders", h.HandleOrdersGet)
 
-	rateLimit := 1
-	for w := 1; w <= rateLimit; w++ {
-		go worker(ctx, &h, h.Jobs)
+	for w := 1; w <= cfg.RateLimit; w++ {
+		go worker(ctx, &h)
 	}
 }
 
@@ -154,13 +153,20 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.Jobs <- order.Order{
+	jobOrders := make([]order.Order, 0)
+	if len(h.Jobs) != 0 {
+		jobOrders = <-h.Jobs
+	}
+
+	o := order.Order{
 		ID:        req.ID,
 		Number:    req.Number,
 		UserID:    req.UserID,
 		Status:    req.Status,
 		CreatedAt: req.CreatedAt,
 	}
+	jobOrders = append(jobOrders, o)
+	h.Jobs <- jobOrders
 
 	w.WriteHeader(http.StatusAccepted)
 }
