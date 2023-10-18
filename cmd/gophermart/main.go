@@ -8,7 +8,7 @@ import (
 
 func main() {
 	if err := app.Run(); err != nil {
-		logger.Log.Info("main: run app failed",
+		logger.Log.Error("main: run app failed",
 			zap.Error(err))
 	}
 }
