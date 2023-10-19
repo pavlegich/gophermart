@@ -79,7 +79,7 @@ func (r *Repository) UploadWithdrawal(ctx context.Context, bal *balance.Balance)
 
 	// Расчёт текущего баланса
 	rows, err := tx.QueryContext(ctx, "SELECT action, amount FROM balances "+
-		"WHERE user_id = $1", bal.UserID)
+		"WHERE user_id = $1 FOR UPDATE", bal.UserID)
 	if err != nil {
 		return fmt.Errorf("UploadWithdrawal: user opertations get failed %w", err)
 	}
