@@ -34,7 +34,7 @@ func WithLogging(h http.Handler) http.Handler {
 			zap.Duration("duration", duration),
 			zap.Int("status", responseData.Status),
 			zap.Int("size", responseData.Size),
-			zap.String("body", responseData.Body.String()),
+			// zap.String("body", responseData.Body.String()),
 		)
 	})
 }

@@ -30,6 +30,8 @@ func (c *Controller) BuildRoute(ctx context.Context) *chi.Mux {
 
 	r.Use(middlewares.WithLogging)
 	r.Use(middlewares.WithAuth)
+	r.Use(middlewares.WithCompress)
+
 	r.Get("/", c.HandleMain)
 
 	users.Activate(r, c.cfg, c.db)
