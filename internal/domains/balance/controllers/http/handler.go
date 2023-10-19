@@ -61,15 +61,9 @@ func newHandler(r *chi.Mux, cfg *config.Config, s balance.Service) {
 func (h *BalanceHandler) HandleBalanceGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	ctxValue := ctx.Value(utils.ContextIDKey)
-	if ctxValue == nil {
-		logger.Log.Info("HandleBalanceGet: get context value failed")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	userID, ok := ctxValue.(int)
-	if !ok {
-		logger.Log.Info("HandleBalanceGet: convert context value into integer failed")
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		logger.Log.Info("HandleBalanceGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -135,15 +129,9 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	ctxValue := ctx.Value(utils.ContextIDKey)
-	if ctxValue == nil {
-		logger.Log.Info("HandleBalanceGet: get context value failed")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	userID, ok := ctxValue.(int)
-	if !ok {
-		logger.Log.Info("HandleBalanceGet: convert context value into integer failed")
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		logger.Log.Info("HandleBalanceWithdraw: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -174,15 +162,9 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	ctxValue := ctx.Value(utils.ContextIDKey)
-	if ctxValue == nil {
-		logger.Log.Info("HandleWithdrawalsGet: get context value failed")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	userID, ok := ctxValue.(int)
-	if !ok {
-		logger.Log.Info("HandleWithdrawalsGet: convert context value into integer failed")
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		logger.Log.Info("HandleWithdrawalsGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

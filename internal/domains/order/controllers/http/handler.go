@@ -20,9 +20,10 @@ import (
 )
 
 type OrderHandler struct {
-	Config  *config.Config
-	Service order.Service
-	Jobs    chan order.Order
+	Config       *config.Config
+	Service      order.Service
+	Jobs         chan order.Order
+	RequestTimer time.Timer
 }
 
 type responseOrder struct {
@@ -41,32 +42,29 @@ func Activate(ctx context.Context, r *chi.Mux, cfg *config.Config, db *sql.DB) {
 // newHandler инициализирует обработчик запросов для заказов
 func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Service) {
 	jobs := make(chan order.Order)
+	timer := time.NewTimer(0)
 	h := OrderHandler{
-		Config:  cfg,
-		Service: s,
-		Jobs:    jobs,
+		Config:       cfg,
+		Service:      s,
+		Jobs:         jobs,
+		RequestTimer: *timer,
 	}
 	r.Post("/api/user/orders", h.HandleOrdersUpload)
 	r.Get("/api/user/orders", h.HandleOrdersGet)
 
 	for w := 1; w <= cfg.RateLimit; w++ {
-		go worker(ctx, &h, h.Jobs)
+		go workerRequestAccrual(ctx, &h, h.Jobs)
 	}
+	go workerCheckOrders(ctx, &h)
 }
 
 // HandleOrdersGet передаёт список заказов пользователя
 func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	ctxValue := ctx.Value(utils.ContextIDKey)
-	if ctxValue == nil {
-		logger.Log.Info("HandleOrdersGet: get context value failed")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	userID, ok := ctxValue.(int)
-	if !ok {
-		logger.Log.Info("HandleOrdersGet: convert context value into integer failed")
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		logger.Log.Info("HandleOrdersGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,15 +122,9 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 
 	req.Number = buf.String()
 
-	ctxValue := ctx.Value(utils.ContextIDKey)
-	if ctxValue == nil {
-		logger.Log.Info("HandleOrdersUpload: get context value failed")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	userID, ok := ctxValue.(int)
-	if !ok {
-		logger.Log.Info("HandleOrdersUpload: convert context value into integer failed")
+	userID, err := utils.GetUserIDFromContext(ctx)
+	if err != nil {
+		logger.Log.Info("HandleOrdersUpload: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

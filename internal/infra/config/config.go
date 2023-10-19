@@ -26,7 +26,7 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 	flag.StringVar(&cfg.Database, "d", "postgresql://localhost:5432/gophermart", "URI (DSN) to database")
 	flag.StringVar(&cfg.Accrual, "r", "", "Accrual service host:port")
 
-	cfg.Update = 2 * time.Second
+	cfg.Update = 5 * time.Second
 	cfg.RateLimit = 1
 
 	flag.Parse()
