@@ -19,17 +19,17 @@ func NewOrderRepo(db *sql.DB) *Repository {
 	}
 }
 
-// GetOrders возвращает список заказов для пользователя
-func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order, error) {
+// GetAllOrders возвращает список заказов для пользователя
+func (r *Repository) GetAllOrders(ctx context.Context, userID int) ([]*order.Order, error) {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("GetOrders: connection to database in died %w", err)
+		return nil, fmt.Errorf("GetAllOrders: connection to database in died %w", err)
 	}
 
 	// Начало транзакции
 	tx, err := r.db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("GetOrders: begin transaction failed %w", err)
+		return nil, fmt.Errorf("GetAllOrders: begin transaction failed %w", err)
 	}
 	defer tx.Rollback()
 
@@ -37,7 +37,7 @@ func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order,
 	rows, err := tx.QueryContext(ctx, "SELECT id, number, user_id, status, accrual, created_at FROM orders WHERE user_id = $1 "+
 		"ORDER BY created_at DESC", userID)
 	if err != nil {
-		return nil, fmt.Errorf("GetOrders: read rows from table failed %w", err)
+		return nil, fmt.Errorf("GetAllOrders: read rows from table failed %w", err)
 	}
 	defer rows.Close()
 
@@ -45,19 +45,19 @@ func (r *Repository) GetOrders(ctx context.Context, userID int) ([]*order.Order,
 	for rows.Next() {
 		var ord order.Order
 		if err := rows.Scan(&ord.ID, &ord.Number, &ord.UserID, &ord.Status, &ord.Accrual, &ord.CreatedAt); err != nil {
-			return nil, fmt.Errorf("GetOrders: scan row failed %w", err)
+			return nil, fmt.Errorf("GetAllOrders: scan row failed %w", err)
 		}
 		storedOrders = append(storedOrders, &ord)
 	}
 
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("GetOrders: rows.Err %w", err)
+		return nil, fmt.Errorf("GetAllOrders: rows.Err %w", err)
 	}
 
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("GetOrders: commit transaction failed %w", err)
+		return nil, fmt.Errorf("GetAllOrders: commit transaction failed %w", err)
 	}
 
 	return storedOrders, nil
@@ -197,4 +197,48 @@ func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
 	}
 
 	return nil
+}
+
+// GetUnprocessedOrders возвращает список всех необработанных заказов
+func (r *Repository) GetUnprocessedOrders(ctx context.Context) ([]*order.Order, error) {
+	// Проверка базы данных
+	if err := r.db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("GetUnprocessedOrders: connection to database in died %w", err)
+	}
+
+	// Начало транзакции
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("GetUnprocessedOrders: begin transaction failed %w", err)
+	}
+	defer tx.Rollback()
+
+	// Получение данных заказа
+	rows, err := tx.QueryContext(ctx, "SELECT id, number, user_id, status, accrual, created_at FROM orders "+
+		"WHERE status = 'NEW' OR status = 'PROCESSING'")
+	if err != nil {
+		return nil, fmt.Errorf("GetUnprocessedOrders: read rows from table failed %w", err)
+	}
+	defer rows.Close()
+
+	storedOrders := make([]*order.Order, 0)
+	for rows.Next() {
+		var ord order.Order
+		if err := rows.Scan(&ord.ID, &ord.Number, &ord.UserID, &ord.Status, &ord.Accrual, &ord.CreatedAt); err != nil {
+			return nil, fmt.Errorf("GetUnprocessedOrders: scan row failed %w", err)
+		}
+		storedOrders = append(storedOrders, &ord)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("GetAllOrders: rows.Err %w", err)
+	}
+
+	// Подтверждение транзакции
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("GetAllOrders: commit transaction failed %w", err)
+	}
+
+	return storedOrders, nil
 }

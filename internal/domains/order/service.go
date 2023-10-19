@@ -37,7 +37,7 @@ func (s *OrderService) Create(ctx context.Context, ord *Order) error {
 
 // List возвращает список заказов для пользователя
 func (s *OrderService) List(ctx context.Context, userID int) ([]*Order, error) {
-	orders, err := s.repo.GetOrders(ctx, userID)
+	orders, err := s.repo.GetAllOrders(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("List: get orders list failed %w", err)
 	}
@@ -60,4 +60,16 @@ func (s *OrderService) Upload(ctx context.Context, ord *Order) error {
 		return fmt.Errorf("Upload: save order failed %w", err)
 	}
 	return nil
+}
+
+// ListUnprocessed возвращает список всех ещё необработанных заказов
+func (s *OrderService) ListUnprocessed(ctx context.Context) ([]*Order, error) {
+	orders, err := s.repo.GetUnprocessedOrders(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ListUnprocessed: get orders list failed %w", err)
+	}
+	if len(orders) == 0 {
+		return nil, fmt.Errorf("ListUnprocessed: no orders found failed %w", errs.ErrOrdersNotFound)
+	}
+	return orders, nil
 }

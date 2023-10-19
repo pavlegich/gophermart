@@ -22,6 +22,7 @@ type accrualResponseOrder struct {
 	Accrual float32 `json:"accrual,omitempty"`
 }
 
+// workerCheckOrders получает и отправляет в канал необработанные заказы
 func workerCheckOrders(ctx context.Context, h *OrderHandler) {
 	ticker := time.NewTicker(h.Config.Update)
 
@@ -30,16 +31,8 @@ func workerCheckOrders(ctx context.Context, h *OrderHandler) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Получение id пользователя из context
-			userID, err := utils.GetUserIDFromContext(ctx)
-			if err != nil {
-				logger.Log.Info("workerCheckOrders: get user id from context failed %w",
-					zap.Error(err))
-				continue
-			}
-
 			// Получение списка заказов
-			ordersList, err := h.Service.List(ctx, userID)
+			ordersList, err := h.Service.ListUnprocessed(ctx)
 			if err != nil {
 				if errors.Is(err, errs.ErrOrdersNotFound) {
 					logger.Log.Info("workerCheckOrders: orders not found for this user",
@@ -50,23 +43,24 @@ func workerCheckOrders(ctx context.Context, h *OrderHandler) {
 				}
 				continue
 			}
+
+			// Отправка всех необработанных заказов в канал
 			for _, o := range ordersList {
-				if o.Status == "NEW" || o.Status == "PROCESSING" {
-					job := order.Order{
-						ID:        o.ID,
-						Number:    o.Number,
-						UserID:    o.UserID,
-						Status:    o.Status,
-						Accrual:   o.Accrual,
-						CreatedAt: o.CreatedAt,
-					}
-					h.Jobs <- job
+				job := order.Order{
+					ID:        o.ID,
+					Number:    o.Number,
+					UserID:    o.UserID,
+					Status:    o.Status,
+					Accrual:   o.Accrual,
+					CreatedAt: o.CreatedAt,
 				}
+				h.Jobs <- job
 			}
 		}
 	}
 }
 
+// workerRequestAccrual получает и обрабатывает ответ от системы начисления баллов по заказам
 func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan order.Order) {
 	for {
 		select {
@@ -74,20 +68,20 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			return
 		case ord, ok := <-jobs:
 			if !ok {
-				logger.Log.Info("worker: channel is closed")
+				logger.Log.Info("workerRequestAccrual: channel is closed")
 				return
 			}
 
 			orderNumber := ord.Number
 			if h.Config.Accrual == "" {
-				logger.Log.Info("worker: accrual address is empty")
+				logger.Log.Info("workerRequestAccrual: accrual address is empty")
 				return
 			}
 
 			reqURL := h.Config.Accrual + "/api/orders/" + orderNumber
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 			if err != nil {
-				logger.Log.Info("worker: new request forming failed", zap.Error(err))
+				logger.Log.Info("workerRequestAccrual: new request forming failed", zap.Error(err))
 				continue
 			}
 
@@ -95,7 +89,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			<-h.RequestTimer.C
 			resp, err := utils.GetRequestWithRetry(ctx, req)
 			if err != nil {
-				logger.Log.Info("worker: request to accrual system failed",
+				logger.Log.Info("workerRequestAccrual: request to accrual system failed",
 					zap.String("url", req.RequestURI))
 				continue
 			}
@@ -111,20 +105,20 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 					retryString := resp.Header.Get("Retry-After")
 					retry, err := strconv.Atoi(retryString)
 					if err != nil {
-						logger.Log.Info("worker: retry header convert into integer failed",
+						logger.Log.Info("workerRequestAccrual: retry header convert into integer failed",
 							zap.Error(err),
 							zap.String("Retry-After", retryString))
 						continue
 					}
-					logger.Log.Info("worker: status accrual too many requests",
+					logger.Log.Info("workerRequestAccrual: status accrual too many requests",
 						zap.String("retry-after", retryString))
 					h.RequestTimer.Reset(time.Duration(retry) * time.Second)
 					continue
 				case http.StatusInternalServerError:
-					logger.Log.Info("worker: status internal accrual service error")
+					logger.Log.Info("workerRequestAccrual: status internal accrual service error")
 					continue
 				default:
-					logger.Log.Info("worker: unexpected accrual service status code",
+					logger.Log.Info("workerRequestAccrual: unexpected accrual service status code",
 						zap.Int("status", resp.StatusCode))
 					continue
 				}
@@ -134,12 +128,12 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			var buf bytes.Buffer
 			var respJSON accrualResponseOrder
 			if _, err := buf.ReadFrom(resp.Body); err != nil {
-				logger.Log.Info("worker: read response body failed",
+				logger.Log.Info("workerRequestAccrual: read response body failed",
 					zap.Error(err))
 				continue
 			}
 			if err := json.Unmarshal(buf.Bytes(), &respJSON); err != nil {
-				logger.Log.Info("worker: response unmarshal failed",
+				logger.Log.Info("workerRequestAccrual: response unmarshal failed",
 					zap.String("body", buf.String()),
 					zap.Error(err))
 				continue
@@ -159,7 +153,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 					ord.Status = respJSON.Status
 					ord.Accrual = respJSON.Accrual
 				default:
-					logger.Log.Info("worker: invalid response order status",
+					logger.Log.Info("workerRequestAccrual: invalid response order status",
 						zap.String("status", respJSON.Status))
 					continue
 				}
@@ -168,7 +162,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			// Загрузка обновленного заказа в хранилище
 			if err := h.Service.Upload(ctx, &ord); err != nil {
 				if !errors.Is(err, errs.ErrOrderAlreadyProcessed) {
-					logger.Log.Info("worker: upload order failed",
+					logger.Log.Info("workerRequestAccrual: upload order failed",
 						zap.Error(err))
 				}
 			}

@@ -18,10 +18,12 @@ type Service interface {
 	Create(ctx context.Context, order *Order) error
 	List(ctx context.Context, userID int) ([]*Order, error)
 	Upload(ctx context.Context, order *Order) error
+	ListUnprocessed(ctx context.Context) ([]*Order, error)
 }
 
 type Repository interface {
 	CreateOrder(ctx context.Context, order *Order) error
-	GetOrders(ctx context.Context, userID int) ([]*Order, error)
+	GetAllOrders(ctx context.Context, userID int) ([]*Order, error)
 	SaveOrder(ctx context.Context, order *Order) error
+	GetUnprocessedOrders(ctx context.Context) ([]*Order, error)
 }
