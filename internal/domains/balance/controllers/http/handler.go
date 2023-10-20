@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -62,15 +63,16 @@ func (h *BalanceHandler) HandleBalanceGet(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 
 	userID, err := utils.GetUserIDFromContext(ctx)
+	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.Info("HandleBalanceGet: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	balanceList, err := h.Service.List(ctx, userID)
 	if err != nil {
-		logger.Log.Info("HandleBalanceGet: balance get failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceGet: balance get failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -89,7 +91,7 @@ func (h *BalanceHandler) HandleBalanceGet(w http.ResponseWriter, r *http.Request
 			resp.Current -= b.Amount
 			resp.Withdrawn += b.Amount
 		default:
-			logger.Log.Info("HandleBalanceGet: action get failed")
+			logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceGet: action get failed")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -97,7 +99,7 @@ func (h *BalanceHandler) HandleBalanceGet(w http.ResponseWriter, r *http.Request
 
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
-		logger.Log.Info("HandleBalanceGet: response marshal failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceGet: response marshal failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -115,24 +117,25 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 	var req requestWithdraw
 	var buf bytes.Buffer
 
+	userID, err := utils.GetUserIDFromContext(ctx)
+	idString := strconv.Itoa(userID)
+	if err != nil {
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceWithdraw: get user id from context failed")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleBalanceWithdraw: read request body failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceWithdraw: read request body failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
-		logger.Log.Info("HandleBalanceWithdraw: request unmarshal failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceWithdraw: request unmarshal failed",
 			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	userID, err := utils.GetUserIDFromContext(ctx)
-	if err != nil {
-		logger.Log.Info("HandleBalanceWithdraw: get user id from context failed")
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -151,7 +154,7 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.Info("HandleBalanceWithdraw: withdrawal failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleBalanceWithdraw: withdrawal failed",
 			zap.Error(err))
 		return
 	}
@@ -163,8 +166,9 @@ func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 
 	userID, err := utils.GetUserIDFromContext(ctx)
+	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.Info("HandleWithdrawalsGet: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleWithdrawalsGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -176,7 +180,7 @@ func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Req
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.Info("HandleWithdrawalsGet: balance get failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleWithdrawalsGet: balance get failed",
 			zap.Error(err))
 		return
 	}
@@ -194,14 +198,14 @@ func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Req
 	}
 
 	if len(resp) == 0 {
-		logger.Log.Info("HandleWithdrawalsGet: get withdrawals failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleWithdrawalsGet: get withdrawals failed",
 			zap.Error(errs.ErrWithdrawalsNotFound))
 		w.WriteHeader(http.StatusNoContent)
 	}
 
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
-		logger.Log.Info("HandleWithdrawalsGet: response marshal failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleWithdrawalsGet: response marshal failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return

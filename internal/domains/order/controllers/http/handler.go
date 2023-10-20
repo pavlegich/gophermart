@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -20,10 +21,9 @@ import (
 )
 
 type OrderHandler struct {
-	Config       *config.Config
-	Service      order.Service
-	Jobs         chan order.Order
-	RequestTimer time.Timer
+	Config  *config.Config
+	Service order.Service
+	Jobs    chan order.Order
 }
 
 type responseOrder struct {
@@ -42,12 +42,10 @@ func Activate(ctx context.Context, r *chi.Mux, cfg *config.Config, db *sql.DB) {
 // newHandler инициализирует обработчик запросов для заказов
 func newHandler(ctx context.Context, r *chi.Mux, cfg *config.Config, s order.Service) {
 	jobs := make(chan order.Order)
-	timer := time.NewTimer(0)
 	h := OrderHandler{
-		Config:       cfg,
-		Service:      s,
-		Jobs:         jobs,
-		RequestTimer: *timer,
+		Config:  cfg,
+		Service: s,
+		Jobs:    jobs,
 	}
 	r.Post("/api/user/orders", h.HandleOrdersUpload)
 	r.Get("/api/user/orders", h.HandleOrdersGet)
@@ -63,8 +61,9 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	userID, err := utils.GetUserIDFromContext(ctx)
+	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.Info("HandleOrdersGet: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -72,11 +71,11 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	ordersList, err := h.Service.List(ctx, userID)
 	if err != nil {
 		if errors.Is(err, errs.ErrOrdersNotFound) {
-			logger.Log.Info("HandleOrdersGet: orders not found for this user",
+			logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: orders not found for this user",
 				zap.Error(err))
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			logger.Log.Info("HandleOrdersGet: get orders list failed",
+			logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: get orders list failed",
 				zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -96,7 +95,7 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
-		logger.Log.Info("HandleOrdersGet: response marshal failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: response marshal failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -123,8 +122,9 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 	req.Number = buf.String()
 
 	userID, err := utils.GetUserIDFromContext(ctx)
+	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.Info("HandleOrdersUpload: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersUpload: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -140,7 +140,7 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.Info("HandleOrdersUpload: create new order failed",
+		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersUpload: create new order failed",
 			zap.Error(err))
 		return
 	}

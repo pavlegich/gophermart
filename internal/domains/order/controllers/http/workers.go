@@ -62,6 +62,8 @@ func workerCheckOrders(ctx context.Context, h *OrderHandler) {
 
 // workerRequestAccrual получает и обрабатывает ответ от системы начисления баллов по заказам
 func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan order.Order) {
+	timer := time.NewTimer(0)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -74,22 +76,22 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 
 			orderNumber := ord.Number
 			if h.Config.Accrual == "" {
-				logger.Log.Info("workerRequestAccrual: accrual address is empty")
+				logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: accrual address is empty")
 				return
 			}
 
 			reqURL := h.Config.Accrual + "/api/orders/" + orderNumber
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 			if err != nil {
-				logger.Log.Info("workerRequestAccrual: new request forming failed", zap.Error(err))
+				logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: new request forming failed", zap.Error(err))
 				continue
 			}
 
 			// Запрос только в случае, если таймер остановлен
-			<-h.RequestTimer.C
+			<-timer.C
 			resp, err := utils.GetRequestWithRetry(ctx, req)
 			if err != nil {
-				logger.Log.Info("workerRequestAccrual: request to accrual system failed",
+				logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: request to accrual system failed",
 					zap.String("url", req.RequestURI))
 				continue
 			}
@@ -99,41 +101,37 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			if resp.StatusCode != http.StatusOK {
 				switch resp.StatusCode {
 				case http.StatusNoContent:
-					ord.Status = "INVALID"
-					ord.Accrual = 0
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: order not found in accrual service")
 				case http.StatusTooManyRequests:
 					retryString := resp.Header.Get("Retry-After")
 					retry, err := strconv.Atoi(retryString)
 					if err != nil {
-						logger.Log.Info("workerRequestAccrual: retry header convert into integer failed",
+						logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: retry header convert into integer failed",
 							zap.Error(err),
 							zap.String("Retry-After", retryString))
-						continue
 					}
-					logger.Log.Info("workerRequestAccrual: status accrual too many requests",
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: status accrual too many requests",
 						zap.String("retry-after", retryString))
-					h.RequestTimer.Reset(time.Duration(retry) * time.Second)
-					continue
+					timer.Reset(time.Duration(retry) * time.Second)
 				case http.StatusInternalServerError:
-					logger.Log.Info("workerRequestAccrual: status internal accrual service error")
-					continue
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: status internal accrual service error")
 				default:
-					logger.Log.Info("workerRequestAccrual: unexpected accrual service status code",
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: unexpected accrual service status code",
 						zap.Int("status", resp.StatusCode))
-					continue
 				}
+				continue
 			}
 
 			// Обработка тела ответа системы начисления баллов
 			var buf bytes.Buffer
 			var respJSON accrualResponseOrder
 			if _, err := buf.ReadFrom(resp.Body); err != nil {
-				logger.Log.Info("workerRequestAccrual: read response body failed",
+				logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: read response body failed",
 					zap.Error(err))
 				continue
 			}
 			if err := json.Unmarshal(buf.Bytes(), &respJSON); err != nil {
-				logger.Log.Info("workerRequestAccrual: response unmarshal failed",
+				logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: response unmarshal failed",
 					zap.String("body", buf.String()),
 					zap.Error(err))
 				continue
@@ -153,7 +151,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 					ord.Status = respJSON.Status
 					ord.Accrual = respJSON.Accrual
 				default:
-					logger.Log.Info("workerRequestAccrual: invalid response order status",
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: invalid response order status",
 						zap.String("status", respJSON.Status))
 					continue
 				}
@@ -162,7 +160,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			// Загрузка обновленного заказа в хранилище
 			if err := h.Service.Upload(ctx, &ord); err != nil {
 				if !errors.Is(err, errs.ErrOrderAlreadyProcessed) {
-					logger.Log.Info("workerRequestAccrual: upload order failed",
+					logger.Log.With(zap.String("order_id", orderNumber)).Info("workerRequestAccrual: upload order failed",
 						zap.Error(err))
 				}
 			}

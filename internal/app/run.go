@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pavlegich/gophermart/internal/controllers/handlers"
