@@ -47,18 +47,19 @@ func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleRegister: read request body failed",
+		logger.Log.Error("HandleRegister: read request body failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
-		logger.Log.Info("HandleRegister: request unmarshal failed",
+		logger.Log.Error("HandleRegister: request unmarshal failed",
 			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	if err := h.Service.Register(ctx, &req); err != nil {
 		if errors.Is(err, errs.ErrLoginBusy) {
@@ -66,14 +67,14 @@ func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.Info("HandleRegister: user register failed",
+		logger.Log.Error("HandleRegister: user register failed",
 			zap.Error(err))
 		return
 	}
 
 	token, err := hash.BuildJWTString(ctx, req.ID)
 	if err != nil {
-		logger.Log.Info("HandleRegister: build token failed",
+		logger.Log.Error("HandleRegister: build token failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -98,18 +99,19 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleLogin: read request body failed",
+		logger.Log.Error("HandleLogin: read request body failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
-		logger.Log.Info("HandleLogin: request unmarshal failed",
+		logger.Log.Error("HandleLogin: request unmarshal failed",
 			zap.String("body", buf.String()),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	storedUser, err := h.Service.Login(ctx, &req)
 	if err != nil {
@@ -120,14 +122,14 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.Info("HandleLogin: user login failed",
+		logger.Log.Error("HandleLogin: user login failed",
 			zap.Error(err))
 		return
 	}
 
 	token, err := hash.BuildJWTString(ctx, storedUser.ID)
 	if err != nil {
-		logger.Log.Info("HandleLogin: build token failed",
+		logger.Log.Error("HandleLogin: build token failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return

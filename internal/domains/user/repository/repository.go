@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/pavlegich/gophermart/internal/domains/user"
-	"golang.org/x/crypto/bcrypt"
 
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
@@ -28,34 +28,22 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 		return nil, fmt.Errorf("GetUserByLogin: connection to database is died %w", err)
 	}
 
-	// Начало транзакции
-	tx, err := r.db.Begin()
-	if err != nil {
-		return nil, fmt.Errorf("GetUserByLogin: begin transaction failed %w", err)
-	}
-	defer tx.Rollback()
-
 	// Выполнение запроса на получение строки с данными пользователя
-	row := tx.QueryRowContext(ctx, "SELECT id, login, password FROM users WHERE login = $1", login)
+	row := r.db.QueryRowContext(ctx, "SELECT id, login, password FROM users WHERE login = $1", login)
 
 	// Запись данных пользователя в структуру
 	var user user.User
-	if err := row.Scan(&user.ID, &user.Login, &user.Password); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", errs.ErrUserNotFound)
-		} else {
-			return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", err)
-		}
+	err := row.Scan(&user.ID, &user.Login, &user.Password)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", errs.ErrUserNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("GetUserByLogin: scan row failed %w", err)
 	}
 
 	err = row.Err()
 	if err != nil {
 		return nil, fmt.Errorf("GetUserByLogin: row.Err %w", err)
-	}
-
-	// Подтверждение транзакции
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("GetUserByLogin: commit transaction failed %w", err)
 	}
 
 	return &user, nil
@@ -75,32 +63,26 @@ func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 	}
 	defer tx.Rollback()
 
+	// ======================
+	// При запросе к БД, если пользователь создан, то все равно будет ошибка
+	// Вот ее и нужно обработать
+	// ======================
+
 	// Проверка отсутствия пользователя
 	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
 	var storedID int
-	if err := id.Scan(&storedID); err != sql.ErrNoRows {
-		if err == nil {
-			return fmt.Errorf("SaveUser: scan row with user id failed %w", errs.ErrLoginBusy)
-		} else {
-			return fmt.Errorf("SaveUser: scan row with user id failed %w", err)
-		}
+	err = id.Scan(&storedID)
+	if err == nil {
+		return fmt.Errorf("SaveUser: scan row with user id failed %w", errs.ErrLoginBusy)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("SaveUser: scan row with user id failed %w", err)
 	}
 
-	// Подготовка запроса к базе данных
-	statement, err := tx.PrepareContext(ctx, "INSERT INTO users (login, password) VALUES ($1, $2)")
-	if err != nil {
+	// Выполнение запроса к базе данных
+	if _, err := tx.ExecContext(ctx, "INSERT INTO users (login, password) VALUES ($1, $2)",
+		u.Login, u.Password); err != nil {
 		return fmt.Errorf("SaveUser: insert into table failed %w", err)
-	}
-	defer statement.Close()
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("SaveUser: hash generate failed %w", err)
-	}
-
-	// Исполнение запроса к базе данных
-	if _, err := statement.ExecContext(ctx, u.Login, hashedPassword); err != nil {
-		return fmt.Errorf("SaveUser: statement exec failed %w", err)
 	}
 
 	// Проверка присутствия пользователя

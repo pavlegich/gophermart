@@ -63,7 +63,7 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	userID, err := utils.GetUserIDFromContext(ctx)
 	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersGet: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -71,11 +71,11 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 	ordersList, err := h.Service.List(ctx, userID)
 	if err != nil {
 		if errors.Is(err, errs.ErrOrdersNotFound) {
-			logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: orders not found for this user",
+			logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersGet: orders not found for this user",
 				zap.Error(err))
 			w.WriteHeader(http.StatusNoContent)
 		} else {
-			logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: get orders list failed",
+			logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersGet: get orders list failed",
 				zap.Error(err))
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -95,7 +95,7 @@ func (h *OrderHandler) HandleOrdersGet(w http.ResponseWriter, r *http.Request) {
 
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
-		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersGet: response marshal failed",
+		logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersGet: response marshal failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -113,18 +113,19 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 	var buf bytes.Buffer
 
 	if _, err := buf.ReadFrom(r.Body); err != nil {
-		logger.Log.Info("HandleOrdersUpload: read request body failed",
+		logger.Log.Error("HandleOrdersUpload: read request body failed",
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	req.Number = buf.String()
 
 	userID, err := utils.GetUserIDFromContext(ctx)
 	idString := strconv.Itoa(userID)
 	if err != nil {
-		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersUpload: get user id from context failed")
+		logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersUpload: get user id from context failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -140,7 +141,7 @@ func (h *OrderHandler) HandleOrdersUpload(w http.ResponseWriter, r *http.Request
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		logger.Log.With(zap.String("user_id", idString)).Info("HandleOrdersUpload: create new order failed",
+		logger.Log.With(zap.String("user_id", idString)).Error("HandleOrdersUpload: create new order failed",
 			zap.Error(err))
 		return
 	}

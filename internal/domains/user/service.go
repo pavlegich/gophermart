@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -22,8 +23,13 @@ func NewUserService(repo Repository) *UserService {
 
 // Register проверяет и сохраняет данные нового пользователя в хранилище
 func (s *UserService) Register(ctx context.Context, user *User) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("Register: hash generate failed %w", err)
+	}
+	user.Password = string(hashedPassword)
 	if err := s.repo.SaveUser(ctx, user); err != nil {
-		return err
+		return fmt.Errorf("Register: save user failed %w", err)
 	}
 	return nil
 }
