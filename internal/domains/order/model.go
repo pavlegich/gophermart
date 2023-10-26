@@ -26,5 +26,4 @@ type Repository interface {
 	GetAllOrders(ctx context.Context, userID int) ([]*Order, error)
 	UpdateOrder(ctx context.Context, order *Order) error
 	GetUnprocessedOrders(ctx context.Context) ([]*Order, error)
-	GetOrderByNumber(ctx context.Context, number string) (*Order, error)
 }

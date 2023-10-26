@@ -53,16 +53,6 @@ func (r *Repository) GetAllOrders(ctx context.Context, userID int) ([]*order.Ord
 	return storedOrders, nil
 }
 
-// GetOrderByNumber возвращает данные заказа по его номеру
-func (r *Repository) GetOrderByNumber(ctx context.Context, n string) (*order.Order, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT id, number, user_id, status, created_at FROM orders WHERE number = $1`, n)
-	var storedOrder order.Order
-	if err := row.Scan(&storedOrder.ID, &storedOrder.Number, &storedOrder.UserID, &storedOrder.Status, &storedOrder.CreatedAt); err != nil {
-		return nil, fmt.Errorf("GetOrderByNumber: scan order failed %w", err)
-	}
-	return &storedOrder, nil
-}
-
 // CreateOrder сохраняет данные нового заказа в хранилище
 func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	// Проверка базы данных
@@ -77,22 +67,25 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	}
 	defer tx.Rollback()
 
+	// Проверка отстутствия заказа
+	rowID := tx.QueryRowContext(ctx, `SELECT user_id FROM orders WHERE number = $1`, ord.Number)
+	var userID int
+	if err := rowID.Scan(&userID); !errors.Is(err, sql.ErrNoRows) {
+		if err == nil {
+			if userID == ord.UserID {
+				return fmt.Errorf("CreateOrder: %w", errs.ErrOrderAlreadyUpload)
+			}
+			return fmt.Errorf("CreateOrder: %w", errs.ErrOrderUploadByAnother)
+		}
+		return fmt.Errorf("CreateOrder: scan order row with user id failed %w", err)
+	}
+
 	// Выполнение запроса к базе данных и получение данных для заказа
 	var storedOrder order.Order
 	row := tx.QueryRowContext(ctx, `INSERT INTO orders (number, user_id) VALUES ($1, $2) 
 	RETURNING id, number, user_id, status, created_at;`, ord.Number, ord.UserID)
 	if err := row.Scan(&storedOrder.ID, &storedOrder.Number, &storedOrder.UserID,
 		&storedOrder.Status, &storedOrder.CreatedAt); err != nil {
-		storedOrder, err := r.GetOrderByNumber(ctx, ord.Number)
-		if err != nil {
-			return fmt.Errorf("CreateOrder: get order by number failed %w", err)
-		}
-		if storedOrder.UserID != ord.UserID {
-			return fmt.Errorf("CreateOrder: %w", errs.ErrOrderUploadByAnother)
-		}
-		if storedOrder.UserID == ord.UserID {
-			return fmt.Errorf("CreateOrder: %w", errs.ErrOrderAlreadyUpload)
-		}
 		return fmt.Errorf("CreateOrder: insert into table failed %w", err)
 	}
 	ord.ID = storedOrder.ID
@@ -131,8 +124,14 @@ func (r *Repository) UpdateOrder(ctx context.Context, ord *order.Order) error {
 
 	// Сохранение информации о начислении, если заказ обработан
 	if ord.Status == "PROCESSED" {
-		if err := r.CreateAccrualForOrder(ctx, ord); err != nil {
-			return fmt.Errorf("UpdateOrder: create accrual in balances table for order failed %w", err)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO balances 
+		(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)`,
+			ord.Accrual, ord.UserID, ord.Number); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return fmt.Errorf("UpdateOrder: %w", errs.ErrOrderAlreadyProcessed)
+			}
+			return fmt.Errorf("UpdateOrder: insert into balances failed %w", err)
 		}
 	}
 
@@ -141,20 +140,6 @@ func (r *Repository) UpdateOrder(ctx context.Context, ord *order.Order) error {
 		return fmt.Errorf("UpdateOrder: commit transaction failed %w", err)
 	}
 
-	return nil
-}
-
-// CreateAccrualForOrder создаёт начисление по заказу для пользователя в хранилище
-func (r *Repository) CreateAccrualForOrder(ctx context.Context, ord *order.Order) error {
-	if _, err := r.db.ExecContext(ctx, `INSERT INTO balances 
-	(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)`,
-		ord.Accrual, ord.UserID, ord.Number); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return fmt.Errorf("CreateAccrualForOrder: %w", errs.ErrOrderAlreadyProcessed)
-		}
-		return fmt.Errorf("CreateAccrualForOrder: insert into balances failed %w", err)
-	}
 	return nil
 }
 
