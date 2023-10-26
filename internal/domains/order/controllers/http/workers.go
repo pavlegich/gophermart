@@ -34,10 +34,7 @@ func workerCheckOrders(ctx context.Context, h *OrderHandler) {
 			// Получение списка заказов
 			ordersList, err := h.Service.ListUnprocessed(ctx)
 			if err != nil {
-				if errors.Is(err, errs.ErrOrdersNotFound) {
-					logger.Log.Error("workerCheckOrders: orders not found for this user",
-						zap.Error(err))
-				} else {
+				if !errors.Is(err, errs.ErrOrdersNotFound) {
 					logger.Log.Error("workerCheckOrders: get orders list failed",
 						zap.Error(err))
 				}
@@ -92,7 +89,7 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 			resp, err := utils.GetRequestWithRetry(ctx, req)
 			if err != nil {
 				logger.Log.With(zap.String("order_id", orderNumber)).Error("workerRequestAccrual: request to accrual system failed",
-					zap.String("url", req.RequestURI))
+					zap.String("url", reqURL), zap.Error(err))
 				continue
 			}
 			defer resp.Body.Close()
@@ -159,10 +156,8 @@ func workerRequestAccrual(ctx context.Context, h *OrderHandler, jobs <-chan orde
 
 			// Загрузка обновленного заказа в хранилище
 			if err := h.Service.Upload(ctx, &ord); err != nil {
-				if !errors.Is(err, errs.ErrOrderAlreadyProcessed) {
-					logger.Log.With(zap.String("order_id", orderNumber)).Error("workerRequestAccrual: upload order failed",
-						zap.Error(err))
-				}
+				logger.Log.With(zap.String("order_id", orderNumber)).Error("workerRequestAccrual: upload order failed",
+					zap.Error(err))
 			}
 		}
 	}

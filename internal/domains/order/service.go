@@ -22,6 +22,7 @@ func NewOrderService(repo Repository) *OrderService {
 
 // Create обрабатывает и сохраняет новый заказ в хранилище
 func (s *OrderService) Create(ctx context.Context, ord *Order) error {
+	// Проверка корректности номера заказа
 	orderNumber, err := strconv.Atoi(ord.Number)
 	if err != nil {
 		return fmt.Errorf("Create: convert into integer failed %w", errs.ErrIncorrectNumberFormat)
@@ -29,6 +30,7 @@ func (s *OrderService) Create(ctx context.Context, ord *Order) error {
 	if !utils.LuhnValid(orderNumber) {
 		return fmt.Errorf("Create: luhn check failed %w", errs.ErrIncorrectNumberFormat)
 	}
+	// Создание нового заказа
 	if err := s.repo.CreateOrder(ctx, ord); err != nil {
 		return fmt.Errorf("Create: create order failed %w", err)
 	}
@@ -56,7 +58,7 @@ func (s *OrderService) Upload(ctx context.Context, ord *Order) error {
 	if !utils.LuhnValid(orderNumber) {
 		return fmt.Errorf("Upload: luhn check failed %w", errs.ErrIncorrectNumberFormat)
 	}
-	if err := s.repo.SaveOrder(ctx, ord); err != nil {
+	if err := s.repo.UpdateOrder(ctx, ord); err != nil {
 		return fmt.Errorf("Upload: save order failed %w", err)
 	}
 	return nil

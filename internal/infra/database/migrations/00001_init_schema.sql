@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS balances (
 );
 
 -- создание индексов для таблиц orders и balances по полю created_at
+CREATE INDEX IF NOT EXISTS order_user_id_idx ON orders (user_id);
 CREATE INDEX IF NOT EXISTS order_create_idx ON orders (created_at);
 CREATE INDEX IF NOT EXISTS balance_create_idx ON balances (created_at);
 

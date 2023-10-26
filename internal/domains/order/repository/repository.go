@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pavlegich/gophermart/internal/domains/order"
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
@@ -26,11 +27,6 @@ func (r *Repository) GetAllOrders(ctx context.Context, userID int) ([]*order.Ord
 	if err := r.db.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("GetAllOrders: connection to database in died %w", err)
 	}
-
-	// ======================
-	// Создать индекс, тогда поиск будет происходить быстрее
-	// Почитать про внутрянку работы индексов, спрашивают на собесах
-	// ======================
 
 	// Получение данных заказа
 	rows, err := r.db.QueryContext(ctx, `SELECT id, number, user_id, status, accrual, created_at 
@@ -57,6 +53,16 @@ func (r *Repository) GetAllOrders(ctx context.Context, userID int) ([]*order.Ord
 	return storedOrders, nil
 }
 
+// GetOrderByNumber возвращает данные заказа по его номеру
+func (r *Repository) GetOrderByNumber(ctx context.Context, n string) (*order.Order, error) {
+	row := r.db.QueryRowContext(ctx, `SELECT id, number, user_id, status, created_at FROM orders WHERE number = $1`, n)
+	var storedOrder order.Order
+	if err := row.Scan(&storedOrder.ID, &storedOrder.Number, &storedOrder.UserID, &storedOrder.Status, &storedOrder.CreatedAt); err != nil {
+		return nil, fmt.Errorf("GetOrderByNumber: scan order failed %w", err)
+	}
+	return &storedOrder, nil
+}
+
 // CreateOrder сохраняет данные нового заказа в хранилище
 func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	// Проверка базы данных
@@ -71,41 +77,28 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	}
 	defer tx.Rollback()
 
-	// ======================
-	// Обработать ошибку при запросе к БД,
-	// он увидит, что строчка уже есть
-	// ======================
-
-	// Проверка отсутствия заказа
-	userID := tx.QueryRowContext(ctx, "SELECT user_id FROM orders WHERE number = $1", ord.Number)
-	var storedUserID int
-	err = userID.Scan(&storedUserID)
-	if err == nil {
-		if ord.UserID == storedUserID {
-			return fmt.Errorf("CrateOrder: %w", errs.ErrOrderAlreadyUpload)
+	// Выполнение запроса к базе данных и получение данных для заказа
+	var storedOrder order.Order
+	row := tx.QueryRowContext(ctx, `INSERT INTO orders (number, user_id) VALUES ($1, $2) 
+	RETURNING id, number, user_id, status, created_at;`, ord.Number, ord.UserID)
+	if err := row.Scan(&storedOrder.ID, &storedOrder.Number, &storedOrder.UserID,
+		&storedOrder.Status, &storedOrder.CreatedAt); err != nil {
+		storedOrder, err := r.GetOrderByNumber(ctx, ord.Number)
+		if err != nil {
+			return fmt.Errorf("CreateOrder: get order by number failed %w", err)
 		}
-		return fmt.Errorf("CrateOrder: %w", errs.ErrOrderUploadByAnother)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("CreateOrder: query row failed %w", err)
-	}
-
-	// Выполнение запроса к базе данных
-	if _, err := tx.ExecContext(ctx, "INSERT INTO orders (number, user_id) VALUES ($1, $2)",
-		ord.Number, ord.UserID); err != nil {
+		if storedOrder.UserID != ord.UserID {
+			return fmt.Errorf("CreateOrder: %w", errs.ErrOrderUploadByAnother)
+		}
+		if storedOrder.UserID == ord.UserID {
+			return fmt.Errorf("CreateOrder: %w", errs.ErrOrderAlreadyUpload)
+		}
 		return fmt.Errorf("CreateOrder: insert into table failed %w", err)
 	}
-
-	// Проверка присутствия заказа
-	row := tx.QueryRowContext(ctx, "SELECT id, number, user_id, status, created_at FROM orders WHERE number = $1", ord.Number)
-	var tmpOrder order.Order
-	if err := row.Scan(&tmpOrder.ID, &tmpOrder.Number, &tmpOrder.UserID, &tmpOrder.Status, &tmpOrder.CreatedAt); err != nil {
-		return fmt.Errorf("CreateOrder: save order not found in table %w", err)
-	}
-	ord.ID = tmpOrder.ID
-	ord.UserID = tmpOrder.UserID
-	ord.Status = tmpOrder.Status
-	ord.CreatedAt = tmpOrder.CreatedAt
+	ord.ID = storedOrder.ID
+	ord.UserID = storedOrder.UserID
+	ord.Status = storedOrder.Status
+	ord.CreatedAt = storedOrder.CreatedAt
 
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
@@ -115,76 +108,53 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	return nil
 }
 
-func (r *Repository) SaveOrder(ctx context.Context, ord *order.Order) error {
+// UpdateOrder обновляет данные о заказе и создаёт запись о начислении за обработанный заказ
+func (r *Repository) UpdateOrder(ctx context.Context, ord *order.Order) error {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
-		return fmt.Errorf("SaveOrder: connection to database in died %w", err)
+		return fmt.Errorf("UpdateOrder: connection to database in died %w", err)
 	}
 
 	// Начало транзакции
 	tx, err := r.db.Begin()
 	if err != nil {
-		return fmt.Errorf("SaveOrder: begin transaction failed %w", err)
+		return fmt.Errorf("UpdateOrder: begin transaction failed %w", err)
 	}
 	defer tx.Rollback()
 
-	// ======================
-	// Сделать эту проверку в самом запросе к БД,
-	// и тогда они не будут обрабатываться
-	// ======================
-
-	// Проверка отсутствия обработки заказа
-	ordStatus := tx.QueryRowContext(ctx, "SELECT status FROM orders WHERE id = $1", ord.ID)
-	var storedStatus string
-	if err := ordStatus.Scan(&storedStatus); err != nil {
-		return fmt.Errorf("SaveOrder: scan row with status failed %w", err)
-	}
-
-	if storedStatus == "INVALID" || storedStatus == "PROCESSED" {
-		return fmt.Errorf("SaveOrder: order check failed %w", errs.ErrOrderAlreadyProcessed)
-	}
-
 	// Выполнение запроса к базе данных
-	if _, err := tx.ExecContext(ctx, "UPDATE orders SET status = $1, "+
-		"accrual = $2 WHERE id = $3", ord.Status, ord.Accrual, ord.ID); err != nil {
-		return fmt.Errorf("SaveOrder: update table failed %w", err)
+	if _, err := tx.ExecContext(ctx, `UPDATE orders SET status = $1, accrual = $2 
+	WHERE id = $3 AND status NOT IN ('PROCESSED', 'INVALID')`,
+		ord.Status, ord.Accrual, ord.ID); err != nil {
+		return fmt.Errorf("UpdateOrder: update table failed %w", err)
 	}
-
-	// ======================
-	// Сделать это отдельным методом,
-	// вызывать методы из сервиса с объявлением транзакции там
-	// ======================
 
 	// Сохранение информации о начислении, если заказ обработан
 	if ord.Status == "PROCESSED" {
-		// Проверка отсутствия заказа
-		userID := tx.QueryRowContext(ctx, `SELECT user_id FROM balances WHERE order_number = $1 
-		AND action = 'ACCRUAL'`, ord.Number)
-		var storedUserID int
-		err := userID.Scan(&storedUserID)
-		if err == nil {
-			if ord.UserID == storedUserID {
-				return fmt.Errorf("SaveOrder: %w", errs.ErrOrderAlreadyUpload)
-			}
-			return fmt.Errorf("SaveOrder: %w", errs.ErrOrderUploadByAnother)
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("SaveOrder: get order from table balances failed %w", err)
-		}
-
-		// Выполнение запроса к базе данных
-		if _, err := tx.ExecContext(ctx, `INSERT INTO balances 
-		(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)`,
-			ord.Accrual, ord.UserID, ord.Number); err != nil {
-			return fmt.Errorf("SaveOrder: insert into balances failed %w", err)
+		if err := r.CreateAccrualForOrder(ctx, ord); err != nil {
+			return fmt.Errorf("UpdateOrder: create accrual in balances table for order failed %w", err)
 		}
 	}
 
 	// Подтверждение транзакции
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("SaveOrder: commit transaction failed %w", err)
+		return fmt.Errorf("UpdateOrder: commit transaction failed %w", err)
 	}
 
+	return nil
+}
+
+// CreateAccrualForOrder создаёт начисление по заказу для пользователя в хранилище
+func (r *Repository) CreateAccrualForOrder(ctx context.Context, ord *order.Order) error {
+	if _, err := r.db.ExecContext(ctx, `INSERT INTO balances 
+	(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)`,
+		ord.Accrual, ord.UserID, ord.Number); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return fmt.Errorf("CreateAccrualForOrder: %w", errs.ErrOrderAlreadyProcessed)
+		}
+		return fmt.Errorf("CreateAccrualForOrder: insert into balances failed %w", err)
+	}
 	return nil
 }
 
@@ -197,7 +167,7 @@ func (r *Repository) GetUnprocessedOrders(ctx context.Context) ([]*order.Order, 
 
 	// Получение данных заказа
 	rows, err := r.db.QueryContext(ctx, `SELECT id, number, user_id, status, accrual, created_at FROM orders 
-	WHERE status = 'NEW' OR status = 'PROCESSING' LIMIT 20`)
+	WHERE status NOT IN ('PROCESSED', 'INVALID') LIMIT 10`)
 	if err != nil {
 		return nil, fmt.Errorf("GetUnprocessedOrders: read rows from table failed %w", err)
 	}
@@ -214,7 +184,7 @@ func (r *Repository) GetUnprocessedOrders(ctx context.Context) ([]*order.Order, 
 
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("GetAllOrders: rows.Err %w", err)
+		return nil, fmt.Errorf("GetUnprocessedOrders: rows.Err %w", err)
 	}
 
 	return storedOrders, nil

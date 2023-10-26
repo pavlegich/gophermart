@@ -98,7 +98,7 @@ func (r *Repository) UploadWithdrawal(ctx context.Context, bal *balance.Balance)
 		return fmt.Errorf("UploadWithdrawal: %w", errs.ErrInsufficientFunds)
 	}
 
-	// Подготовка запроса для вставки строки с операцией
+	// Выполенение запроса для вставки строки с операцией
 	if _, err := tx.ExecContext(ctx, `INSERT INTO balances 
 	(action, amount, user_id, order_number) VALUES ($1, $2, $3, $4);`,
 		bal.Action, bal.Amount, bal.UserID, bal.Order); err != nil {

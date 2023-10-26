@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pavlegich/gophermart/internal/domains/user"
 
 	errs "github.com/pavlegich/gophermart/internal/errors"
@@ -29,7 +30,7 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 	}
 
 	// Выполнение запроса на получение строки с данными пользователя
-	row := r.db.QueryRowContext(ctx, "SELECT id, login, password FROM users WHERE login = $1", login)
+	row := r.db.QueryRowContext(ctx, `SELECT id, login, password FROM users WHERE login = $1`, login)
 
 	// Запись данных пользователя в структуру
 	var user user.User
@@ -63,32 +64,15 @@ func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
 	}
 	defer tx.Rollback()
 
-	// ======================
-	// При запросе к БД, если пользователь создан, то все равно будет ошибка
-	// Вот ее и нужно обработать
-	// ======================
-
-	// Проверка отсутствия пользователя
-	id := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
-	var storedID int
-	err = id.Scan(&storedID)
-	if err == nil {
-		return fmt.Errorf("SaveUser: scan row with user id failed %w", errs.ErrLoginBusy)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("SaveUser: scan row with user id failed %w", err)
-	}
-
 	// Выполнение запроса к базе данных
-	if _, err := tx.ExecContext(ctx, "INSERT INTO users (login, password) VALUES ($1, $2)",
-		u.Login, u.Password); err != nil {
+	var storedID int
+	if err := tx.QueryRowContext(ctx, `INSERT INTO users (login, password) VALUES ($1, $2) 
+	RETURNING id`, u.Login, u.Password).Scan(&storedID); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return fmt.Errorf("SaveUser: %w", errs.ErrLoginBusy)
+		}
 		return fmt.Errorf("SaveUser: insert into table failed %w", err)
-	}
-
-	// Проверка присутствия пользователя
-	id = tx.QueryRowContext(ctx, "SELECT id FROM users WHERE login = $1", u.Login)
-	if err := id.Scan(&storedID); err != nil {
-		return fmt.Errorf("SaveUser: saved user not found in table %w", err)
 	}
 	u.ID = storedID
 

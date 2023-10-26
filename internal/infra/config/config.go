@@ -24,7 +24,7 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 
 	flag.StringVar(&cfg.Address, "a", "localhost:8080", "Gophermart service running host:port")
 	flag.StringVar(&cfg.Database, "d", "postgresql://localhost:5432/gophermart", "URI (DSN) to database")
-	flag.StringVar(&cfg.Accrual, "r", "", "Accrual service host:port")
+	flag.StringVar(&cfg.Accrual, "r", "http://localhost:8088", "Accrual service host:port")
 
 	cfg.Update = 5 * time.Second
 	cfg.RateLimit = 1
