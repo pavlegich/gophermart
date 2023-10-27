@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "go.uber.org/automaxprocs"
@@ -18,7 +21,7 @@ import (
 )
 
 // Run инициализирует основные компоненты и запускает сервер
-func Run() error {
+func Run(done chan bool) error {
 	// Контекст
 	ctx := context.Background()
 
@@ -50,7 +53,27 @@ func Run() error {
 	r.Use(middlewares.Recovery)
 	r.Mount("/", serverRouter)
 
-	logger.Log.Info("Running server", zap.String("address", cfg.Address))
+	// Сервер
+	srv := http.Server{
+		Addr:    cfg.Address,
+		Handler: r,
+	}
 
-	return http.ListenAndServe(cfg.Address, r)
+	logger.Log.Info("running server", zap.String("addr", cfg.Address))
+
+	// Завершение программы
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Log.Error("server shutdown failed",
+				zap.Error(err))
+		}
+		logger.Log.Info("shutting down gracefully",
+			zap.String("signal", sig.String()))
+		done <- true
+	}()
+
+	return srv.ListenAndServe()
 }
