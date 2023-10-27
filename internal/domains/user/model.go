@@ -17,5 +17,5 @@ type Service interface {
 
 type Repository interface {
 	GetUserByLogin(ctx context.Context, login string) (*User, error)
-	SaveUser(ctx context.Context, user *User) error
+	CreateUser(ctx context.Context, user *User) error
 }

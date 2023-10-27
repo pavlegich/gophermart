@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pavlegich/gophermart/internal/domains/order"
 	errs "github.com/pavlegich/gophermart/internal/errors"
@@ -83,7 +84,8 @@ func (r *Repository) CreateOrder(ctx context.Context, ord *order.Order) error {
 	// Выполнение запроса к базе данных и получение данных для заказа
 	var storedOrder order.Order
 	row := tx.QueryRowContext(ctx, `INSERT INTO orders (number, user_id) VALUES ($1, $2) 
-	RETURNING id, number, user_id, status, created_at;`, ord.Number, ord.UserID)
+	RETURNING id, number, user_id, status, created_at;`,
+		ord.Number, ord.UserID)
 	if err := row.Scan(&storedOrder.ID, &storedOrder.Number, &storedOrder.UserID,
 		&storedOrder.Status, &storedOrder.CreatedAt); err != nil {
 		return fmt.Errorf("CreateOrder: insert into table failed %w", err)
@@ -128,7 +130,7 @@ func (r *Repository) UpdateOrder(ctx context.Context, ord *order.Order) error {
 		(action, amount, user_id, order_number) VALUES ('ACCRUAL', $1, $2, $3)`,
 			ord.Accrual, ord.UserID, ord.Number); err != nil {
 			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 				return fmt.Errorf("UpdateOrder: %w", errs.ErrOrderAlreadyProcessed)
 			}
 			return fmt.Errorf("UpdateOrder: insert into balances failed %w", err)

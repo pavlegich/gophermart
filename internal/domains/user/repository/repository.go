@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pavlegich/gophermart/internal/domains/user"
 
@@ -51,35 +52,23 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 }
 
 // Save сохраняет данные пользователя в хранилище
-func (r *Repository) SaveUser(ctx context.Context, u *user.User) error {
+func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
 		return fmt.Errorf("SaveUser: connection to database in died %w", err)
 	}
 
-	// Начало транзакции
-	tx, err := r.db.Begin()
-	if err != nil {
-		return fmt.Errorf("SaveUser: begin transaction failed %w", err)
-	}
-	defer tx.Rollback()
-
 	// Выполнение запроса к базе данных
 	var storedID int
-	if err := tx.QueryRowContext(ctx, `INSERT INTO users (login, password) VALUES ($1, $2) 
+	if err := r.db.QueryRowContext(ctx, `INSERT INTO users (login, password) VALUES ($1, $2) 
 	RETURNING id`, u.Login, u.Password).Scan(&storedID); err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 			return fmt.Errorf("SaveUser: %w", errs.ErrLoginBusy)
 		}
 		return fmt.Errorf("SaveUser: insert into table failed %w", err)
 	}
 	u.ID = storedID
-
-	// Подтверждение транзакции
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("SaveUser: commit transaction failed %w", err)
-	}
 
 	return nil
 }

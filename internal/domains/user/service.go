@@ -28,7 +28,7 @@ func (s *UserService) Register(ctx context.Context, user *User) error {
 		return fmt.Errorf("Register: hash generate failed %w", err)
 	}
 	user.Password = string(hashedPassword)
-	if err := s.repo.SaveUser(ctx, user); err != nil {
+	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return fmt.Errorf("Register: save user failed %w", err)
 	}
 	return nil
