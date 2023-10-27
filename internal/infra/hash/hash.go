@@ -2,6 +2,7 @@ package hash
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"time"
 
@@ -13,42 +14,53 @@ type Claims struct {
 	ID int
 }
 
-const tokenExp = time.Hour * 3
-const secretKey = "supersecretkey"
+type JWT struct {
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+	tokenExp   time.Duration
+}
 
-// BuildJWTString создаёт токен и возвращает его в виде строки
-func BuildJWTString(ctx context.Context, id int) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
+func NewJWT(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey, tokenExp time.Duration) JWT {
+	return JWT{
+		privateKey: privateKey,
+		publicKey:  publicKey,
+		tokenExp:   tokenExp,
+	}
+}
+
+// Create создаёт токен и возвращает его в виде строки
+func (j JWT) Create(ctx context.Context, id int) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenExp)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.tokenExp)),
 		},
 		ID: id,
 	})
 
-	tokenString, err := token.SignedString([]byte(secretKey))
+	tokenString, err := token.SignedString(j.privateKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Create: sign string with key failed %w", err)
 	}
 
 	return tokenString, nil
 }
 
-// GetCredentials возвращает полученные из токена данные для аутентификации
-func GetCredentials(tokenString string) (int, error) {
+// Validate возвращает полученные из токена данные для аутентификации
+func (j JWT) Validate(tokenString string) (int, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("GetCredentials: unexpected signing method: %v", t.Header["alg"])
+			if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("Validate: unexpected signing method: %v", t.Header["alg"])
 			}
-			return []byte(secretKey), nil
+			return j.publicKey, nil
 		})
 	if err != nil {
-		return -1, fmt.Errorf("GetCredentials: parse token failed %w", err)
+		return -1, fmt.Errorf("Validate: parse token failed %w", err)
 	}
 	if !token.Valid {
-		return -1, fmt.Errorf("GetCredentials: token is not valid")
+		return -1, fmt.Errorf("Validate: token is not valid")
 	}
 
 	return claims.ID, nil

@@ -12,7 +12,6 @@ import (
 	repo "github.com/pavlegich/gophermart/internal/domains/user/repository"
 	errs "github.com/pavlegich/gophermart/internal/errors"
 	"github.com/pavlegich/gophermart/internal/infra/config"
-	"github.com/pavlegich/gophermart/internal/infra/hash"
 	"github.com/pavlegich/gophermart/internal/infra/logger"
 	"go.uber.org/zap"
 )
@@ -72,7 +71,7 @@ func (h *UserHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := hash.BuildJWTString(ctx, req.ID)
+	token, err := h.Config.JWT.Create(ctx, req.ID)
 	if err != nil {
 		logger.Log.Error("HandleRegister: build token failed",
 			zap.Error(err))
@@ -127,7 +126,7 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := hash.BuildJWTString(ctx, storedUser.ID)
+	token, err := h.Config.JWT.Create(ctx, storedUser.ID)
 	if err != nil {
 		logger.Log.Error("HandleLogin: build token failed",
 			zap.Error(err))

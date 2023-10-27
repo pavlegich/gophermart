@@ -29,7 +29,7 @@ func (c *Controller) BuildRoute(ctx context.Context) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middlewares.WithLogging)
-	r.Use(middlewares.WithAuth)
+	r.Use(middlewares.WithAuth(c.cfg.JWT))
 	r.Use(middlewares.WithCompress)
 
 	r.Get("/", c.HandleMain)

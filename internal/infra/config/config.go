@@ -2,20 +2,24 @@ package config
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"flag"
 	"fmt"
 	"time"
 
 	"github.com/caarlos0/env/v6"
+	"github.com/pavlegich/gophermart/internal/infra/hash"
 )
 
-// Config хранит значения флагов или переменных окружения
+// Config хранит значения флагов, ключей или переменных окружения
 type Config struct {
 	Address   string `env:"RUN_ADDRESS"`
 	Database  string `env:"DATABASE_URI"`
 	Accrual   string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	Update    time.Duration
 	RateLimit int
+	JWT       hash.JWT
 }
 
 // ParseFlags обрабатывает значения флагов и переменных окружения
@@ -28,6 +32,14 @@ func ParseFlags(ctx context.Context) (*Config, error) {
 
 	cfg.Update = 5 * time.Second
 	cfg.RateLimit = 1
+
+	// Создание ключей для JWT
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return cfg, fmt.Errorf("ParseFlags: generate private key failed")
+	}
+	tokenExp := 3 * time.Hour
+	cfg.JWT = hash.NewJWT(privateKey, &privateKey.PublicKey, tokenExp)
 
 	flag.Parse()
 
