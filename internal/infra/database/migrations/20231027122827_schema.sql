@@ -33,11 +33,19 @@ CREATE INDEX IF NOT EXISTS order_user_id_idx ON orders (user_id);
 CREATE INDEX IF NOT EXISTS order_create_idx ON orders (created_at);
 CREATE INDEX IF NOT EXISTS balance_create_idx ON balances (created_at);
 
+-- +goose StatementBegin
+SELECT 'up SQL query';
+-- +goose StatementEnd
+
 -- +goose Down
 DROP INDEX order_create_idx;
+DROP INDEX order_user_id_idx;
 DROP INDEX balance_create_idx;
 DROP TABLE balances;
 DROP TYPE action;
 DROP TABLE orders;
 DROP TYPE status;
 DROP TABLE users;
+-- +goose StatementBegin
+SELECT 'down SQL query';
+-- +goose StatementEnd
