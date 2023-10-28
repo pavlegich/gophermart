@@ -23,7 +23,7 @@ func NewUserRepo(db *sql.DB) *Repository {
 	}
 }
 
-// GetUserByID возвращает конкретного пользователя из хранилища
+// GetUserByLogin возвращает конкретного пользователя из хранилища
 func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.User, error) {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
@@ -51,11 +51,11 @@ func (r *Repository) GetUserByLogin(ctx context.Context, login string) (*user.Us
 	return &user, nil
 }
 
-// Save сохраняет данные пользователя в хранилище
+// CreateUser сохраняет данные пользователя в хранилище
 func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
-		return fmt.Errorf("SaveUser: connection to database in died %w", err)
+		return fmt.Errorf("CreateUser: connection to database in died %w", err)
 	}
 
 	// Выполнение запроса к базе данных
@@ -64,9 +64,9 @@ func (r *Repository) CreateUser(ctx context.Context, u *user.User) error {
 	RETURNING id`, u.Login, u.Password).Scan(&storedID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			return fmt.Errorf("SaveUser: %w", errs.ErrLoginBusy)
+			return fmt.Errorf("CreateUser: %w", errs.ErrLoginBusy)
 		}
-		return fmt.Errorf("SaveUser: insert into table failed %w", err)
+		return fmt.Errorf("CreateUser: insert into table failed %w", err)
 	}
 	u.ID = storedID
 

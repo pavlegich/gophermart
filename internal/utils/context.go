@@ -9,6 +9,7 @@ type contextKey int
 
 const ContextIDKey contextKey = iota
 
+// GetUserIDFromContext возвращает ID пользователя из контекста
 func GetUserIDFromContext(ctx context.Context) (int, error) {
 	ctxValue := ctx.Value(ContextIDKey)
 	if ctxValue == nil {

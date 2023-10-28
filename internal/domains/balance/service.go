@@ -13,7 +13,6 @@ type BalanceService struct {
 	repo Repository
 }
 
-// NewOrderService возвращает новый сервис для балансов
 func NewBalanceService(repo Repository) *BalanceService {
 	return &BalanceService{
 		repo: repo,

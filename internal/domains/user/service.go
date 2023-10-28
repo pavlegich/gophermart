@@ -9,12 +9,10 @@ import (
 	errs "github.com/pavlegich/gophermart/internal/errors"
 )
 
-// UserService содержит методы и данные сервиса пользователя
 type UserService struct {
 	repo Repository
 }
 
-// NewUserService возвращает новый сервис для пользователя
 func NewUserService(repo Repository) *UserService {
 	return &UserService{
 		repo: repo,

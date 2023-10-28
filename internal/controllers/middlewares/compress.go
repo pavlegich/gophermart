@@ -7,6 +7,7 @@ import (
 	compress "github.com/pavlegich/gophermart/internal/infra/compress/gzip"
 )
 
+// WithCompress обрабатывает запрос с учётом сжатия
 func WithCompress(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w

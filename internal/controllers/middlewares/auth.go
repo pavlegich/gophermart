@@ -8,8 +8,8 @@ import (
 	"github.com/pavlegich/gophermart/internal/utils"
 )
 
-// WithAuth проверяет наличие токена авторизации
-func WithAuth(j hash.JWT) func(http.Handler) http.Handler {
+// WithAuth обрабатывает токен авторизации
+func WithAuth(j *hash.JWT) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.RequestURI == "/api/user/register" || r.RequestURI == "/api/user/login" ||
@@ -21,9 +21,9 @@ func WithAuth(j hash.JWT) func(http.Handler) http.Handler {
 			if err != nil {
 				if err == http.ErrNoCookie {
 					w.WriteHeader(http.StatusUnauthorized)
-				} else {
-					w.WriteHeader(http.StatusBadRequest)
+					return
 				}
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			id, err := j.Validate(cookie.Value)

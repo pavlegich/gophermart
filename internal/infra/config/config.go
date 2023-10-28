@@ -19,7 +19,7 @@ type Config struct {
 	Accrual   string `env:"ACCRUAL_SYSTEM_ADDRESS"`
 	Update    time.Duration
 	RateLimit int
-	JWT       hash.JWT
+	JWT       *hash.JWT
 }
 
 // ParseFlags обрабатывает значения флагов и переменных окружения

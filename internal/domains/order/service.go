@@ -13,7 +13,6 @@ type OrderService struct {
 	repo Repository
 }
 
-// NewOrderService возвращает новый сервис для заказов
 func NewOrderService(repo Repository) *OrderService {
 	return &OrderService{
 		repo: repo,

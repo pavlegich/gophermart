@@ -1,8 +1,6 @@
 package errors
 
-import (
-	"errors"
-)
+import "errors"
 
 var (
 	ErrOrderAlreadyUpload    = errors.New("order already uploaded by this user")

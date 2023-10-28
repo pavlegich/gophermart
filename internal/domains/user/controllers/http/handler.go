@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// UserHandler содержит интерфейсы и данные обработчика для пользователей
 type UserHandler struct {
 	Config  *config.Config
 	Service user.Service
@@ -146,6 +145,7 @@ func (h *UserHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleLogout проводит операцию выхода из системы для пользователя
 func (h *UserHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: "auth",

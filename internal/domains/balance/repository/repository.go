@@ -52,6 +52,7 @@ func (r *Repository) GetBalanceOperations(ctx context.Context, userID int) ([]*b
 	return storedBalance, nil
 }
 
+// UploadWithdrawal загружает новое списание для заказа пользователя
 func (r *Repository) UploadWithdrawal(ctx context.Context, bal *balance.Balance) error {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {

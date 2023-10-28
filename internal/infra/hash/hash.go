@@ -20,8 +20,8 @@ type JWT struct {
 	tokenExp   time.Duration
 }
 
-func NewJWT(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey, tokenExp time.Duration) JWT {
-	return JWT{
+func NewJWT(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey, tokenExp time.Duration) *JWT {
+	return &JWT{
 		privateKey: privateKey,
 		publicKey:  publicKey,
 		tokenExp:   tokenExp,
@@ -29,7 +29,7 @@ func NewJWT(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey, tokenExp time.
 }
 
 // Create создаёт токен и возвращает его в виде строки
-func (j JWT) Create(ctx context.Context, id int) (string, error) {
+func (j *JWT) Create(ctx context.Context, id int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.tokenExp)),
@@ -46,7 +46,7 @@ func (j JWT) Create(ctx context.Context, id int) (string, error) {
 }
 
 // Validate возвращает полученные из токена данные для аутентификации
-func (j JWT) Validate(tokenString string) (int, error) {
+func (j *JWT) Validate(tokenString string) (int, error) {
 	claims := &Claims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims,

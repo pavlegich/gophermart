@@ -59,6 +59,7 @@ func newHandler(r *chi.Mux, cfg *config.Config, s balance.Service) {
 	r.Get("/api/user/withdrawals", h.HandleWithdrawalsGet)
 }
 
+// HandleBalanceGet обрабатывает запрос получения данных о начислениях и списаниях пользователя
 func (h *BalanceHandler) HandleBalanceGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -163,6 +164,7 @@ func (h *BalanceHandler) HandleBalanceWithdraw(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleWithdrawalsGet обрабатывает запрос получения данных о всех списаниях пользователя
 func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
