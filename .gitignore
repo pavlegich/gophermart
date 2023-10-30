@@ -18,6 +18,12 @@ cmd/gophermart/gophermart
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+# Directory for personal activities
+test/
+
 # IDEs directories
 .idea
 .vscode
+
+# System files
+.DS_Store
