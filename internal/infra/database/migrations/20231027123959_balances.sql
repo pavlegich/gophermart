@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS balances (
 );
 
 -- создание индексов
+CREATE INDEX IF NOT EXISTS balance_user_id_idx ON orders (user_id);
 CREATE INDEX IF NOT EXISTS balance_create_idx ON balances (created_at);
 
 -- +goose Down
@@ -22,5 +23,6 @@ SELECT 'down SQL query';
 -- +goose StatementEnd
 
 DROP INDEX balance_create_idx;
+DROP INDEX balance_user_id_idx;
 DROP TABLE balances;
 DROP TYPE action;
