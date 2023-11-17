@@ -200,12 +200,6 @@ func (h *BalanceHandler) HandleWithdrawalsGet(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	if len(resp) == 0 {
-		logger.Log.With(zap.String("user_id", idString)).Error("HandleWithdrawalsGet: get withdrawals failed",
-			zap.Error(errs.ErrWithdrawalsNotFound))
-		w.WriteHeader(http.StatusNoContent)
-	}
-
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
 		logger.Log.With(zap.String("user_id", idString)).Error("HandleWithdrawalsGet: response marshal failed",

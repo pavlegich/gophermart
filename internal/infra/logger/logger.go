@@ -26,7 +26,7 @@ type (
 
 var Log *zap.Logger = zap.NewNop()
 
-// Init инициализирует синглтон логера с необходимым уровнем логирования.
+// Init инициализирует синглтон логера с необходимым уровнем логирования
 func Init(ctx context.Context, level string) error {
 	lvl, err := zap.ParseAtomicLevel(level)
 	if err != nil {

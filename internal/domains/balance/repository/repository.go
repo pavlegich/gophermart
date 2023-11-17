@@ -19,18 +19,18 @@ func NewBalanceRepo(db *sql.DB) *Repository {
 	}
 }
 
-// GetBalanceActions возвращает список операций для баланса пользователя
+// GetBalanceOperations возвращает список операций для баланса пользователя
 func (r *Repository) GetBalanceOperations(ctx context.Context, userID int) ([]*balance.Balance, error) {
 	// Проверка базы данных
 	if err := r.db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("GetBalanceActions: connection to database in died %w", err)
+		return nil, fmt.Errorf("GetBalanceOperations: connection to database in died %w", err)
 	}
 
 	// Получение данных заказа
 	rows, err := r.db.QueryContext(ctx, `SELECT id, action, amount, user_id, order_number, created_at 
 	FROM balances WHERE user_id = $1 ORDER BY created_at DESC;`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("GetBalanceActions: read rows from table failed %w", err)
+		return nil, fmt.Errorf("GetBalanceOperations: read rows from table failed %w", err)
 	}
 	defer rows.Close()
 
@@ -39,14 +39,14 @@ func (r *Repository) GetBalanceOperations(ctx context.Context, userID int) ([]*b
 		var bal balance.Balance
 		err = rows.Scan(&bal.ID, &bal.Action, &bal.Amount, &bal.UserID, &bal.Order, &bal.CreatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("GetBalanceActions: scan row failed %w", err)
+			return nil, fmt.Errorf("GetBalanceOperations: scan row failed %w", err)
 		}
 		storedBalance = append(storedBalance, &bal)
 	}
 
 	err = rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("GetBalanceActions: rows.Err %w", err)
+		return nil, fmt.Errorf("GetBalanceOperations: rows.Err %w", err)
 	}
 
 	return storedBalance, nil
