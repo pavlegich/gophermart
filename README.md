@@ -1,25 +1,15 @@
-# go-musthave-diploma-tpl
+A loyalty system with the following business logic requirements:
 
-Шаблон репозитория для индивидуального дипломного проекта курса «Go-разработчик»
+- registration, authentication and authorization of users;
 
-# Начало работы
+- receiving order numbers from registered users;
 
-1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-2. В корне репозитория выполните команду `go mod init <name>` (где `<name>` — адрес вашего репозитория на GitHub без
-   префикса `https://`) для создания модуля
+- accounting and maintenance of the list of transferred order numbers of a registered user;
 
-# Обновление шаблона
+- accounting and maintenance of the registered user's savings account;
 
-Чтобы иметь возможность получать обновления автотестов и других частей шаблона, выполните команду:
+- verification of accepted order numbers through the loyalty points calculation system;
 
-```
-git remote add -m master template https://github.com/yandex-praktikum/go-musthave-diploma-tpl.git
-```
+- crediting the user's loyalty account for each matching order number.
 
-Для обновления кода автотестов выполните команду:
-
-```
-git fetch template && git checkout template/master .github
-```
-
-Затем добавьте полученные изменения в свой репозиторий.
+Task: https://github.com/pavlegich/gophermart/blob/main/SPECIFICATION.md
