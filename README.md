@@ -1,3 +1,5 @@
+# Accumulative loyalty system Gofermart
+
 A loyalty system with the following business logic requirements:
 
 - registration, authentication and authorization of users;
